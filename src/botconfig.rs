@@ -9,14 +9,7 @@ const NEW_CONF_FILE_NAME: &str = "./conf.new.yaml";
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BotConfig {
     pub discord_token: String,
-    pub bot_entries: Vec<BotEntry>,
     pub meigens: Vec<MeigenEntry>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct BotEntry {
-    pub bot_id: u64,
-    pub name: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -66,7 +59,6 @@ impl BotConfig {
 
         let new_conf = Self {
             discord_token: "TOKEN HERE".into(),
-            bot_entries: vec![],
             meigens: vec![],
         };
 
