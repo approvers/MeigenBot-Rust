@@ -1,6 +1,8 @@
 use crate::botconfig::{BotConfig, MeigenEntry};
 use serenity::model::channel::Message;
 
+use crate::message_checker::check_message;
+
 const BASE_COMMAND: &str = "g!meigen";
 const MAKE_COMMAND: &str = "make";
 const LIST_COMMAND: &str = "list";
@@ -84,22 +86,37 @@ impl MessageSolver {
     }
 
     fn make_meigen(&mut self, message: ParsedMessage) -> SolveResult {
-        let author = message.args.iter().last().unwrap().clone();
-        let meigen = {
+        let author = message.args.iter().next().unwrap().clone();
+        let (meigen, checked_result) = {
             let temp = message.raw_args.trim();
-            let temp_len = temp.chars().count();
             let author_len = author.chars().count();
 
-            temp.chars().take(temp_len - author_len).collect::<String>()
+            let temp = temp.chars().skip(author_len).collect::<String>();
+
+            check_message(temp.trim(), &self.config.blacklist)
         };
 
         let entry = MeigenEntry::new(author, meigen, self.config.max_meigen_length)
             .map_err(|x| CommandUsageError(x.into_string()))?;
 
-        let result = entry.format();
-        let _ = self.config.push_new_meigen(entry);
+        let registered_entry = self
+            .config
+            .push_new_meigen(entry)
+            .map_err(|x| CommandUsageError(format!("ファイル保存に失敗しました: {}", x)))?;
 
-        Ok(Some(result))
+        let mut message = String::new();
+
+        if checked_result.replaced_grace_accent {
+            message.push_str("- \\`を'に置換しました\n");
+        }
+
+        if checked_result.replaced_blacklists {
+            message.push_str("- ブラックリストに追加されていた文字を空白に置換しました\n")
+        }
+
+        message += &registered_entry.format();
+
+        Ok(Some(message))
     }
 
     fn list_meigen(&self, _message: ParsedMessage) -> SolveResult {

@@ -11,6 +11,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 
 mod botconfig;
+mod message_checker;
 mod message_solver;
 
 use botconfig::BotConfig;

@@ -9,12 +9,20 @@ const NEW_CONF_FILE_NAME: &str = "./conf.new.yaml";
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BotConfig {
     pub discord_token: String,
-    pub max_meigen_length: usize,
-    pub meigens: Vec<MeigenEntry>,
-    pub blacklist_chars: Vec<char>,
+    pub max_meigen_length: u128,
+    pub current_id: u128,
+    pub meigens: Vec<RegisteredEntry>,
+    pub blacklist: Vec<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+pub struct RegisteredEntry {
+    id: u128,
+    author: String,
+    content: String,
+}
+
+#[derive(Debug)]
 pub struct MeigenEntry {
     author: String,
     content: String,
@@ -62,8 +70,9 @@ impl BotConfig {
         let new_conf = Self {
             discord_token: "TOKEN HERE".into(),
             max_meigen_length: 300,
+            current_id: 0,
             meigens: vec![],
-            blacklist_chars: vec![],
+            blacklist: vec![],
         };
 
         let file = File::create(path).unwrap();
@@ -72,9 +81,22 @@ impl BotConfig {
         write!(writer, "{}", serde_yaml::to_string(&new_conf).unwrap()).unwrap();
     }
 
-    pub fn push_new_meigen(&mut self, entry: MeigenEntry) -> Result<(), SaveConfigError> {
-        self.meigens.push(entry);
-        self.save()
+    pub fn push_new_meigen(
+        &mut self,
+        entry: MeigenEntry,
+    ) -> Result<&RegisteredEntry, SaveConfigError> {
+        self.current_id += 1;
+
+        let register_entry = RegisteredEntry {
+            id: self.current_id,
+            author: entry.author,
+            content: entry.content,
+        };
+
+        self.meigens.push(register_entry);
+        self.save()?;
+
+        Ok(self.meigens.iter().last().unwrap())
     }
 
     fn save(&self) -> Result<(), SaveConfigError> {
@@ -107,15 +129,44 @@ impl BotConfig {
     }
 }
 
+impl RegisteredEntry {
+    pub fn from_entry(entry: MeigenEntry, id: u128) -> Self {
+        Self {
+            id,
+            author: entry.author,
+            content: entry.content,
+        }
+    }
+
+    pub fn id(&self) -> u128 {
+        self.id
+    }
+
+    pub fn author(&self) -> &str {
+        &self.author
+    }
+
+    pub fn content(&self) -> &str {
+        &self.content
+    }
+
+    pub fn format(&self) -> String {
+        format!(
+            "Meigen No.{}\n```\n{}\n    --- {}\n```",
+            &self.id, &self.content, &self.author
+        )
+    }
+}
+
 impl MeigenEntry {
     pub fn new(
         author: String,
         content: String,
-        max_length: usize,
+        max_length: u128,
     ) -> Result<MeigenEntry, TooLongMeigenError> {
         let meigen_length = author.len() + content.len();
 
-        if meigen_length >= max_length {
+        if meigen_length as u128 >= max_length {
             let err_text = format!(
                 "流石に{}文字は長過ぎません...? せめて{}文字未満にしましょう...",
                 meigen_length, max_length
@@ -126,18 +177,6 @@ impl MeigenEntry {
 
         let result = Self { author, content };
         Ok(result)
-    }
-
-    pub fn content(&self) -> &str {
-        &self.content
-    }
-
-    pub fn author(&self) -> &str {
-        &self.author
-    }
-
-    pub fn format(&self) -> String {
-        format!("```\n{}\n    --- {}\n```", &self.content, &self.author)
     }
 }
 
