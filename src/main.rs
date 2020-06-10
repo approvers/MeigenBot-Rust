@@ -1,96 +1,84 @@
-#![allow(non_upper_case_globals, non_snake_case)]
-use lazy_static::lazy_static;
+#![allow(dead_code)]
 
 use serenity::client::Client;
+use serenity::http::Http;
 use serenity::model::channel::Message;
 use serenity::model::gateway::Ready;
+use serenity::model::id::ChannelId;
 use serenity::prelude::{Context, EventHandler};
-use std::sync::Mutex;
+use std::sync::mpsc;
+use std::sync::{Arc, Mutex};
+use std::thread;
 
 mod botconfig;
-mod message_checker;
+mod message_solver;
 
-use botconfig::{BotConfig, MeigenEntry};
-use message_checker::trim_empty;
-
-lazy_static! {
-    static ref conf: Mutex<BotConfig> = Mutex::new(BotConfig::load());
-}
+use botconfig::BotConfig;
+use message_solver::MessageSolver;
 
 fn main() {
-    let token = conf.lock().unwrap().discord_token.clone();
-    let handler = BotEvHandler;
+    let conf = BotConfig::load();
+    let token = conf.discord_token.clone();
 
-    let mut client = Client::new(token, handler).unwrap();
-    client.start().unwrap();
+    let (tx, rx) = mpsc::channel();
+    let handler = BotEvHandler {
+        channel: Mutex::new(tx),
+    };
+
+    thread::spawn(move || {
+        let mut client = Client::new(token, handler).unwrap();
+        client.start().unwrap();
+    });
+
+    let mut solver = MessageSolver::new(conf);
+    let mut context = None;
+    for event in rx {
+        match event {
+            ClientEvent::OnReady(ctx) => {
+                println!("Bot is ready!");
+                context = Some(ctx);
+            }
+            ClientEvent::OnMessage(msg) => {
+                let ctx = context.as_ref().expect("event was called before ready");
+
+                match solver.solve(&msg) {
+                    Ok(e) => {
+                        if let Some(text) = e {
+                            send_message(&text, msg.channel_id, &ctx.http)
+                        }
+                    }
+                    Err(e) => send_message(&e, msg.channel_id, &ctx.http),
+                }
+            }
+        }
+    }
 }
 
-struct BotEvHandler;
+fn send_message(text: &impl std::fmt::Display, channel_id: ChannelId, http: &Arc<Http>) {
+    if let Err(e) = channel_id.say(http, text) {
+        println!("Failed to send message \"{}\"\n{}", &text, e);
+    }
+}
+
+enum ClientEvent {
+    OnReady(Context),
+    OnMessage(Message),
+}
+
+struct BotEvHandler {
+    channel: Mutex<mpsc::Sender<ClientEvent>>,
+}
 
 impl EventHandler for BotEvHandler {
-    fn ready(&self, _ctx: Context, _data_about_bot: Ready) {
-        println!("Bot is ready.");
+    fn ready(&self, ctx: Context, _data_about_bot: Ready) {
+        let event = ClientEvent::OnReady(ctx);
+
+        self.channel.lock().unwrap().send(event).unwrap();
     }
 
-    fn message(&self, ctx: Context, new_message: Message) {
-        if new_message.author.bot {
-            return;
-        }
+    fn message(&self, _: Context, new_message: Message) {
+        let event = ClientEvent::OnMessage(new_message);
 
-        let content = new_message.content.trim();
-
-        if content.is_empty() {
-            return;
-        }
-
-        let splits = new_message.content.split(" ").collect::<Vec<&str>>();
-
-        if splits.len() <= 2 {
-            return;
-        }
-
-        if *splits.get(0).unwrap() != "g!meigen" {
-            return;
-        }
-
-        let author = {
-            let temp = (*splits.get(1).unwrap()).trim().to_string();
-            trim_empty(&temp)
-        };
-
-        let content = {
-            let temp = splits
-                .iter()
-                .skip(2)
-                .fold(String::new(), |a, b| format!("{} {}", a, b))
-                .trim()
-                .to_string();
-            trim_empty(&temp)
-        };
-
-        if author.is_empty() || content.is_empty() {
-            return;
-        }
-
-        if author == "id" || author == "print" || author == "del" || author == "random" {
-            return;
-        }
-
-        if author.len() + content.len() > 300 {
-            new_message
-                .channel_id
-                .say(&ctx.http, "いくらなんでも合計300文字以上は長過ぎません？")
-                .unwrap();
-
-            return;
-        }
-
-        let entry = MeigenEntry { author, content };
-        println!("Meigen: {:?}", &entry);
-
-        let result = conf.lock().unwrap().new_meigen(entry);
-        if let Err(e) = result {
-            println!("{}", e);
-        }
+        self.channel.lock().unwrap().send(event).unwrap();
     }
 }
