@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+#![deny(clippy::all)]
 
 use serenity::client::Client;
 use serenity::http::Http;

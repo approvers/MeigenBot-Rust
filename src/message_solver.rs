@@ -99,22 +99,14 @@ impl MessageSolver {
         let entry = MeigenEntry::new(author, meigen, self.config.max_meigen_length)
             .map_err(|x| CommandUsageError(x.into_string()))?;
 
-        let registered_entry = self
+        let registered_meigen = self
             .config
             .push_new_meigen(entry)
             .map_err(|x| CommandUsageError(format!("ファイル保存に失敗しました: {}", x)))?;
 
         let mut message = String::new();
-
-        if checked_result.replaced_grace_accent {
-            message.push_str("- \\`を'に置換しました\n");
-        }
-
-        if checked_result.replaced_blacklists {
-            message.push_str("- ブラックリストに追加されていた文字を空白に置換しました\n")
-        }
-
-        message += &registered_entry.format();
+        message += &checked_result.format();
+        message += &registered_meigen.format();
 
         Ok(Some(message))
     }
@@ -124,14 +116,20 @@ impl MessageSolver {
     }
 
     fn random_meigen(&self, _message: ParsedMessage) -> SolveResult {
-        unimplemented!()
+        use rand::Rng;
+
+        let mut rng = rand::thread_rng();
+        let index = rng.gen_range(0, self.config.meigens.len());
+
+        Ok(Some(self.config.meigens[index].format()))
     }
 
     fn stat_meigen(&self) -> SolveResult {
-        unimplemented!()
+        let text = format!("合計名言数: {}個", self.config.meigens.len());
+        Ok(Some(text))
     }
 
     fn help(&self) -> SolveResult {
-        Ok(Some("未実装だカス".into()))
+        Ok(Some("未実装だカス ヘルプコマンドが来るよ".into()))
     }
 }

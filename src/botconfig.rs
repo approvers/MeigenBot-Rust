@@ -164,11 +164,11 @@ impl MeigenEntry {
         content: String,
         max_length: u128,
     ) -> Result<MeigenEntry, TooLongMeigenError> {
-        let meigen_length = author.len() + content.len();
+        let meigen_length = author.chars().count() + content.chars().count();
 
         if meigen_length as u128 >= max_length {
             let err_text = format!(
-                "流石に{}文字は長過ぎません...? せめて{}文字未満にしましょう...",
+                "流石に{}文字は長過ぎませんの...? せめて{}文字未満にしてくださいまし...",
                 meigen_length, max_length
             );
 
