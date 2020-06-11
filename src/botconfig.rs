@@ -11,12 +11,12 @@ pub struct BotConfig {
     pub discord_token: String,
     pub max_meigen_length: u128,
     pub current_id: u128,
-    pub meigens: Vec<RegisteredEntry>,
+    pub meigens: Vec<RegisteredMeigen>,
     pub blacklist: Vec<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct RegisteredEntry {
+pub struct RegisteredMeigen {
     id: u128,
     author: String,
     content: String,
@@ -84,10 +84,10 @@ impl BotConfig {
     pub fn push_new_meigen(
         &mut self,
         entry: MeigenEntry,
-    ) -> Result<&RegisteredEntry, SaveConfigError> {
+    ) -> Result<&RegisteredMeigen, SaveConfigError> {
         self.current_id += 1;
 
-        let register_entry = RegisteredEntry {
+        let register_entry = RegisteredMeigen {
             id: self.current_id,
             author: entry.author,
             content: entry.content,
@@ -129,7 +129,7 @@ impl BotConfig {
     }
 }
 
-impl RegisteredEntry {
+impl RegisteredMeigen {
     pub fn from_entry(entry: MeigenEntry, id: u128) -> Self {
         Self {
             id,
