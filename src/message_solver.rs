@@ -86,6 +86,7 @@ impl MessageSolver {
         match sub_command.as_str() {
             MAKE_COMMAND => self.make_meigen(parsed),
             LIST_COMMAND => self.list_meigen(parsed),
+            FROM_ID_COMMAND => self.from_id_meigen(parsed),
             RANDOM_COMMAND => self.random_meigen(parsed),
             STAT_COMMAND => self.stat_meigen(),
             HELP_COMMAND => self.help(),
@@ -129,25 +130,23 @@ impl MessageSolver {
         Ok(Some(message))
     }
 
-    fn list_meigen(&self, message: ParsedMessage) -> SolveResult {
-        if message.args.len() <= 1 {
+    fn from_id_meigen(&self, message: ParsedMessage) -> SolveResult {
+        if message.args.len() <= 0 {
             return self.help();
         }
 
-        let id = message.args[1]
+        let id = message.args[0]
             .parse()
-            .map_err(|x| CommandUsageError(format!("第二引数が数値じゃないよ: {}", x)))?;
+            .map_err(|x| CommandUsageError(format!("第一引数が数値じゃないよ: {}", x)))?;
 
-        match message.args[0].as_str() {
-            "id" => {
-                if let Some(m) = self.config.meigens.iter().find(|m| m.id() == id) {
-                    Ok(Some(m.format().into()))
-                } else {
-                    Err(CommandUsageError("そのIDの名言は存在しません".into()))
-                }
-            }
-            _ => self.help(),
+        match self.config.meigens.iter().find(|x| x.id() == id) {
+            Some(meigen) => Ok(Some(meigen.format())),
+            None => Err(CommandUsageError("そんなIDの名言はないよ".into())),
         }
+    }
+
+    fn list_meigen(&self, message: ParsedMessage) -> SolveResult {
+        unimplemented!()
     }
 
     fn random_meigen(&self, _message: ParsedMessage) -> SolveResult {
@@ -250,6 +249,10 @@ impl MessageSolver {
                 .lines()
                 .skip(skip_count)
                 .fold(String::new(), |a, b| format!("{}\n{}", a, b));
+        }
+
+        if ok_count == 0 {
+            return Ok(None);
         }
 
         let text = format!(
