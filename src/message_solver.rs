@@ -15,6 +15,9 @@ const MEIGEN_MAX_LENGTH: usize = 300;
 
 const TENSAI_BISYOUJYO_BOT_ID: u64 = 688788399275901029;
 
+const LIST_MEIGEN_DEFAULT_COUNT: usize = 5;
+const LIST_MEIGEN_DEFAULT_PAGE: usize = 1;
+
 pub struct MessageSolver {
     config: BotConfig,
 }
@@ -131,7 +134,7 @@ impl MessageSolver {
     }
 
     fn from_id_meigen(&self, message: ParsedMessage) -> SolveResult {
-        if message.args.len() <= 0 {
+        if message.args.len() == 0 {
             return self.help();
         }
 
@@ -146,7 +149,37 @@ impl MessageSolver {
     }
 
     fn list_meigen(&self, message: ParsedMessage) -> SolveResult {
-        unimplemented!()
+        if message.args.len() == 0 {
+            return self.help();
+        }
+
+        #[inline]
+        fn parse_or(default: usize, text: Option<&String>) -> Result<usize, CommandUsageError> {
+            if let Some(num) = text {
+                num.parse()
+                    .map_err(|x| CommandUsageError(format!("引数が数値じゃないよ: {}", x)))
+            } else {
+                Ok(default)
+            }
+        }
+
+        let count = parse_or(LIST_MEIGEN_DEFAULT_COUNT, message.args.get(0))?;
+        let page = parse_or(LIST_MEIGEN_DEFAULT_PAGE, message.args.get(1))?;
+
+        let start = (page - 1) * count;
+        let mut result = String::new();
+
+        for index in start..(start + count) {
+            if let Some(meigen) = self.config.meigens.get(index) {
+                result += &format!("{}\n", meigen.format());
+            }
+        }
+
+        if result.is_empty() {
+            Err(CommandUsageError("一致するものがなかったよ...".into()))
+        } else {
+            Ok(Some(result.trim().into()))
+        }
     }
 
     fn random_meigen(&self, _message: ParsedMessage) -> SolveResult {
