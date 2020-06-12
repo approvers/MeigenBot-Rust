@@ -1,8 +1,8 @@
 use log::trace;
 use serde::{Deserialize, Serialize};
-use std::fmt::Display;
+
 use std::fs::{self, File};
-use std::io::{self, BufWriter, Write};
+use std::io::{BufWriter, Write};
 use std::path::Path;
 
 macro_rules! make_error_enum {
@@ -88,8 +88,7 @@ impl BotConfig {
     pub fn load(path: &str) -> Result<Self, ConfigError> {
         let file = File::open(path).map_err(|x| ConfigError::open(x))?;
 
-        let mut result: Self =
-            serde_yaml::from_reader(&file).map_err(|x| ConfigError::deserialize(x))?;
+        let mut result: Self = serde_yaml::from_reader(&file).map_err(ConfigError::deserialize)?;
         result.path = path.into();
 
         Ok(result)
@@ -110,12 +109,12 @@ impl BotConfig {
             blacklist: vec![],
         };
 
-        let serialized = serde_yaml::to_string(&new_conf).map_err(|x| ConfigError::serialize(x))?;
+        let serialized = serde_yaml::to_string(&new_conf).map_err(ConfigError::serialize)?;
 
-        let file = File::create(path).map_err(|x| ConfigError::create(x))?;
+        let file = File::create(path).map_err(ConfigError::create)?;
         let mut writer = BufWriter::new(file);
 
-        write!(writer, "{}", serialized).map_err(|x| ConfigError::save(x))
+        write!(writer, "{}", serialized).map_err(ConfigError::save)
     }
 
     pub fn push_new_meigen(
@@ -137,17 +136,17 @@ impl BotConfig {
     }
 
     fn save(&self) -> Result<(), ConfigError> {
-        let serialized = serde_yaml::to_string(self).map_err(|x| ConfigError::serialize(x))?;
+        let serialized = serde_yaml::to_string(self).map_err(ConfigError::serialize)?;
 
         let path = Path::new(&self.path);
         if path.exists() {
-            fs::remove_file(path).map_err(|x| ConfigError::delete(x))?;
+            fs::remove_file(path).map_err(ConfigError::delete)?;
         }
 
-        let file = File::create(path).map_err(|x| ConfigError::create(x))?;
+        let file = File::create(path).map_err(ConfigError::create)?;
 
         let mut writer = BufWriter::new(file);
-        write!(writer, "{}", serialized).map_err(|x| ConfigError::save(x))
+        write!(writer, "{}", serialized).map_err(ConfigError::save)
     }
 }
 
@@ -210,7 +209,7 @@ impl RegisteredMeigen {
             .chain(TIDY_SUFFIX.chars())
             .collect::<String>();
 
-        return Self::internal_format(self.id, &self.author, &content);
+        Self::internal_format(self.id, &self.author, &content)
     }
 }
 

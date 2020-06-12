@@ -1,7 +1,6 @@
 #![allow(dead_code)]
 #![deny(clippy::all)]
 
-use log::{error, trace};
 use serenity::client::Client;
 use serenity::http::Http;
 use serenity::model::channel::Message;

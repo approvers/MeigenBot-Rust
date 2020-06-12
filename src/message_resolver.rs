@@ -1,5 +1,5 @@
 use crate::botconfig::{BotConfig, MeigenEntry, RegisteredMeigen};
-use log::*;
+
 use serenity::model::channel::Message;
 
 use crate::message_checker::check_message;
@@ -244,7 +244,7 @@ impl MessageResolver {
             }
         }
 
-        return None;
+        None
     }
 
     fn copy(&mut self, mut noobest_meigen: String) -> SolveResult {
