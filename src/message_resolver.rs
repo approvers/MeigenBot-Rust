@@ -1,4 +1,5 @@
-use crate::botconfig::{BotConfig, MeigenEntry, RegisteredMeigen, TooLongMeigenError};
+use crate::botconfig::{BotConfig, MeigenEntry, RegisteredMeigen};
+use log::*;
 use serenity::model::channel::Message;
 
 use crate::message_checker::check_message;
@@ -15,10 +16,7 @@ const MEIGEN_MAX_LENGTH: usize = 300;
 
 const TENSAI_BISYOUJYO_BOT_ID: u64 = 688788399275901029;
 
-const LIST_MEIGEN_DEFAULT_COUNT: usize = 5;
-const LIST_MEIGEN_DEFAULT_PAGE: usize = 1;
-
-pub struct MessageSolver {
+pub struct MessageResolver {
     config: BotConfig,
 }
 
@@ -37,7 +35,7 @@ impl std::fmt::Display for CommandUsageError {
 
 type SolveResult = Result<Option<String>, CommandUsageError>;
 
-impl MessageSolver {
+impl MessageResolver {
     pub fn new(config: BotConfig) -> Self {
         Self { config }
     }
@@ -103,7 +101,7 @@ impl MessageSolver {
         meigen: String,
     ) -> Result<&RegisteredMeigen, CommandUsageError> {
         let entry = MeigenEntry::new(author, meigen, self.config.max_meigen_length)
-            .map_err(|x| CommandUsageError(x.into_string()))?;
+            .map_err(|x| CommandUsageError(x.to_string()))?;
 
         self.config
             .push_new_meigen(entry)
@@ -149,37 +147,62 @@ impl MessageSolver {
     }
 
     fn list_meigen(&self, message: ParsedMessage) -> SolveResult {
-        if message.args.len() == 0 {
-            return self.help();
-        }
+        const LIST_MEIGEN_DEFAULT_COUNT: i32 = 5;
+        const LIST_MEIGEN_DEFAULT_PAGE: i32 = 1;
+        const LIST_MAX_LENGTH_PER_MEIGEN: usize = 50;
+        const LIST_MAX_LENGTH: usize = 500;
 
         #[inline]
-        fn parse_or(default: usize, text: Option<&String>) -> Result<usize, CommandUsageError> {
-            if let Some(num) = text {
-                num.parse()
-                    .map_err(|x| CommandUsageError(format!("引数が数値じゃないよ: {}", x)))
-            } else {
-                Ok(default)
+        fn parse_or(default: i32, text: Option<&String>) -> Result<i32, CommandUsageError> {
+            match text {
+                Some(num) => num
+                    .parse()
+                    .map_err(|x| CommandUsageError(format!("引数が正しい数値じゃないよ: {}", x))),
+                None => Ok(default),
             }
         }
 
-        let count = parse_or(LIST_MEIGEN_DEFAULT_COUNT, message.args.get(0))?;
+        // 表示する数
+        let show_count = parse_or(LIST_MEIGEN_DEFAULT_COUNT, message.args.get(0))?;
         let page = parse_or(LIST_MEIGEN_DEFAULT_PAGE, message.args.get(1))?;
 
-        let start = (page - 1) * count;
+        let range = {
+            use std::convert::TryInto;
+            let meigens_end_index = self.config.meigens.len() as i32;
+            let from: usize = (meigens_end_index - show_count + 1 - (show_count * (page - 1)) - 1)
+                .try_into()
+                .map_err(|x| CommandUsageError(format!("引数が正しい数値じゃないよ: {}", x)))?;
+
+            let to: usize = (meigens_end_index - (show_count * (page - 1)))
+                .try_into()
+                .map_err(|x| CommandUsageError(format!("引数が正しい数値じゃないよ: {}", x)))?;
+
+            from..to
+        };
+
         let mut result = String::new();
 
-        for index in start..(start + count) {
-            if let Some(meigen) = self.config.meigens.get(index) {
-                result += &format!("{}\n", meigen.format());
-            }
+        for index in range {
+            let meigen = match self.config.meigens.get(index) {
+                Some(m) => m,
+                None => break,
+            };
+
+            let formatted = meigen.tidy_format(LIST_MAX_LENGTH_PER_MEIGEN);
+            result = format!("{}\n{}", result, &formatted);
         }
 
         if result.is_empty() {
-            Err(CommandUsageError("一致するものがなかったよ...".into()))
-        } else {
-            Ok(Some(result.trim().into()))
+            return Err(CommandUsageError("一致するものがなかったよ...".into()));
         }
+
+        if result.chars().count() > LIST_MAX_LENGTH {
+            return Err(CommandUsageError(
+                "結果が長すぎて表示できないよ。もっと値を少なくしてね".into(),
+            ));
+        }
+
+        Ok(Some(result))
     }
 
     fn random_meigen(&self, _message: ParsedMessage) -> SolveResult {

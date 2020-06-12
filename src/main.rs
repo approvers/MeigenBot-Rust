@@ -1,25 +1,48 @@
 #![allow(dead_code)]
 #![deny(clippy::all)]
 
+use log::{error, trace};
 use serenity::client::Client;
 use serenity::http::Http;
 use serenity::model::channel::Message;
 use serenity::model::gateway::Ready;
 use serenity::model::id::ChannelId;
 use serenity::prelude::{Context, EventHandler};
+use std::env;
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
 use std::thread;
 
 mod botconfig;
 mod message_checker;
-mod message_solver;
+mod message_resolver;
 
 use botconfig::BotConfig;
-use message_solver::MessageSolver;
+use message_resolver::MessageResolver;
+
+const CONF_FILE_NAME: &str = "./conf.yaml";
+const NEW_CONF_FILE_NAME: &str = "./conf.new.yaml";
 
 fn main() {
-    let conf = BotConfig::load();
+    let log_level = if cfg!(debug) {
+        4 //trace
+    } else {
+        2 //info
+    };
+
+    stderrlog::new()
+        .module(module_path!())
+        .verbosity(log_level)
+        .timestamp(stderrlog::Timestamp::Second)
+        .init()
+        .unwrap();
+
+    if env::args().any(|x| x == "--newconf") {
+        BotConfig::create_new_conf(NEW_CONF_FILE_NAME).unwrap();
+        return;
+    }
+
+    let conf = BotConfig::load(CONF_FILE_NAME).unwrap();
     let token = conf.discord_token.clone();
 
     let (tx, rx) = mpsc::channel();
@@ -32,7 +55,7 @@ fn main() {
         client.start().unwrap();
     });
 
-    let mut solver = MessageSolver::new(conf);
+    let mut solver = MessageResolver::new(conf);
     let mut context = None;
     for event in rx {
         match event {
@@ -40,6 +63,7 @@ fn main() {
                 println!("Bot is ready!");
                 context = Some(ctx);
             }
+
             ClientEvent::OnMessage(msg) => {
                 let ctx = context.as_ref().expect("event was called before ready");
 

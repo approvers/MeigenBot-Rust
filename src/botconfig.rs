@@ -1,13 +1,56 @@
+use log::trace;
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 use std::fs::{self, File};
 use std::io::{self, BufWriter, Write};
 use std::path::Path;
 
-const CONF_FILE_NAME: &str = "./conf.yaml";
-const NEW_CONF_FILE_NAME: &str = "./conf.new.yaml";
+macro_rules! make_error_enum {
+    ($enum_name:ident; $($variant:ident => $description:expr),+ $(,)?) => {
+        #[derive(Debug)]
+        pub enum $enum_name {
+            $($variant,)+
+        }
+
+        impl std::fmt::Display for $enum_name {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                let desc = match *self {
+                    $($variant => $description,)+
+                };
+                write!(f, "{}", desc)
+            }
+        }
+    };
+
+    ($enum_name:ident; $($variant:ident $func_name:ident($($($vars:ident),+ $(,)?)?) => $format:expr),+ $(,)?) => {
+        #[derive(Debug)]
+        pub enum $enum_name {
+            $($variant(String),)+
+        }
+
+        impl $enum_name {
+            $ (
+                pub fn $func_name($($($vars: impl std::fmt::Display,)*)?) -> $enum_name {
+                    $enum_name::$variant(format!($format, $($($vars),+)?))
+                }
+            )+
+        }
+
+        impl std::fmt::Display for $enum_name {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                match self {
+                    $($enum_name::$variant(text) => write!(f, "{}", text),)+
+                }
+            }
+        }
+    };
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BotConfig {
+    #[serde(skip)]
+    path: String,
+
     pub discord_token: String,
     pub max_meigen_length: u128,
     pub current_id: u128,
@@ -28,46 +71,38 @@ pub struct MeigenEntry {
     content: String,
 }
 
-#[derive(Debug)]
-pub struct SaveConfigError(String);
-pub struct TooLongMeigenError(String);
+make_error_enum! {
+    ConfigError;
+    SaveConfigFailed save(e) => "保存に失敗しました: {}",
+    OpenConfigFailed open(e) => "ファイルを開けませんでした: {}",
+    CreateConfigFailed create(e) => "ファイル作成に失敗しました: {}",
+    DeleteConfigFailed delete(e) => "ファイル削除に失敗しました: {}",
+
+    ConfigAlreadyExist already_exist() => "Configファイルがすでに存在します",
+
+    SerializeFailed serialize(e) => "Seralizeに失敗しました: {}",
+    DeserializeFailed deserialize(e) => "Deserializeに失敗しました: {}",
+}
 
 impl BotConfig {
-    pub fn load() -> Self {
-        let path = Path::new(CONF_FILE_NAME);
+    pub fn load(path: &str) -> Result<Self, ConfigError> {
+        let file = File::open(path).map_err(|x| ConfigError::open(x))?;
 
-        if !path.exists() {
-            println!("Config file not found");
-            Self::create_new_conf(NEW_CONF_FILE_NAME);
-            panic!();
-        }
+        let mut result: Self =
+            serde_yaml::from_reader(&file).map_err(|x| ConfigError::deserialize(x))?;
+        result.path = path.into();
 
-        let file = File::open(path).unwrap();
-
-        let deserialize_result: Result<Self, _> = serde_yaml::from_reader(&file);
-
-        if let Err(e) = deserialize_result {
-            println!("Parse conf failed: {}", e);
-            Self::create_new_conf(NEW_CONF_FILE_NAME);
-            panic!();
-        }
-
-        deserialize_result.unwrap()
+        Ok(result)
     }
 
-    fn create_new_conf(path_str: &str) {
+    pub fn create_new_conf(path_str: &str) -> Result<(), ConfigError> {
         let path = Path::new(path_str);
         if path.exists() {
-            println!("New conf file exists. To create new one, just delete it.");
-            return;
+            return Err(ConfigError::already_exist());
         }
 
-        println!(
-            "I create new file, so please fill token, rename to {} and restart.",
-            CONF_FILE_NAME
-        );
-
         let new_conf = Self {
+            path: path_str.into(),
             discord_token: "TOKEN HERE".into(),
             max_meigen_length: 300,
             current_id: 0,
@@ -75,16 +110,18 @@ impl BotConfig {
             blacklist: vec![],
         };
 
-        let file = File::create(path).unwrap();
+        let serialized = serde_yaml::to_string(&new_conf).map_err(|x| ConfigError::serialize(x))?;
+
+        let file = File::create(path).map_err(|x| ConfigError::create(x))?;
         let mut writer = BufWriter::new(file);
 
-        write!(writer, "{}", serde_yaml::to_string(&new_conf).unwrap()).unwrap();
+        write!(writer, "{}", serialized).map_err(|x| ConfigError::save(x))
     }
 
     pub fn push_new_meigen(
         &mut self,
         entry: MeigenEntry,
-    ) -> Result<&RegisteredMeigen, SaveConfigError> {
+    ) -> Result<&RegisteredMeigen, ConfigError> {
         self.current_id += 1;
 
         let register_entry = RegisteredMeigen {
@@ -99,43 +136,35 @@ impl BotConfig {
         Ok(self.meigens.iter().last().unwrap())
     }
 
-    fn save(&self) -> Result<(), SaveConfigError> {
-        let serialized = serde_yaml::to_string(self)
-            .map_err(|e| SaveConfigError(format!("Serialize failed: {}", e)))?;
+    fn save(&self) -> Result<(), ConfigError> {
+        let serialized = serde_yaml::to_string(self).map_err(|x| ConfigError::serialize(x))?;
 
-        #[inline]
-        fn failed(content: &str, e: io::Error) -> SaveConfigError {
-            let message = format!(
-                "Create file failed: {}.
-            Save this content insted of me.
-            {}",
-                e, content
-            );
-
-            SaveConfigError(message)
-        }
-
-        let path = Path::new(CONF_FILE_NAME);
+        let path = Path::new(&self.path);
         if path.exists() {
-            fs::remove_file(path).map_err(|e| failed(&serialized, e))?;
+            fs::remove_file(path).map_err(|x| ConfigError::delete(x))?;
         }
 
-        let file = File::create(path).map_err(|e| failed(&serialized, e))?;
+        let file = File::create(path).map_err(|x| ConfigError::create(x))?;
 
         let mut writer = BufWriter::new(file);
-        write!(writer, "{}", serialized).map_err(|e| failed(&serialized, e))?;
-
-        Ok(())
+        write!(writer, "{}", serialized).map_err(|x| ConfigError::save(x))
     }
 }
 
 impl RegisteredMeigen {
-    pub fn from_entry(entry: MeigenEntry, id: u128) -> Self {
+    fn from_entry(entry: MeigenEntry, id: u128) -> Self {
         Self {
             id,
             author: entry.author,
             content: entry.content,
         }
+    }
+
+    fn internal_format(id: u128, author: &str, content: &str) -> String {
+        format!(
+            "Meigen No.{}\n```\n{}\n    --- {}\n```",
+            id, content, author
+        )
     }
 
     pub fn id(&self) -> u128 {
@@ -151,11 +180,43 @@ impl RegisteredMeigen {
     }
 
     pub fn format(&self) -> String {
-        format!(
-            "Meigen No.{}\n```\n{}\n    --- {}\n```",
-            &self.id, &self.content, &self.author
-        )
+        Self::internal_format(self.id, &self.author, &self.content())
     }
+
+    pub fn tidy_format(&self, max_length: usize) -> String {
+        const BASE: &str = "Meigen No.\n```\n\n    --- \n```";
+        const TIDY_SUFFIX: &str = "...";
+        const NO_SPACE_MSG: &str = "スペースが足りない...";
+
+        let remain_length = (max_length as i32)
+            - (BASE.chars().count() as i32)
+            - (self.author.chars().count() as i32);
+
+        if remain_length >= self.content().chars().count() as i32 {
+            trace!("Didn't tidied");
+            return self.format();
+        }
+
+        if remain_length <= NO_SPACE_MSG.chars().count() as i32 {
+            trace!("There isn't enough space.");
+            return format!("Meigen No.{}\n```{}```", self.id, NO_SPACE_MSG);
+        }
+
+        trace!("Tidied with TIDY_SUFFIX");
+        let content = self
+            .content()
+            .chars()
+            .take((remain_length - TIDY_SUFFIX.len() as i32) as usize)
+            .chain(TIDY_SUFFIX.chars())
+            .collect::<String>();
+
+        return Self::internal_format(self.id, &self.author, &content);
+    }
+}
+
+make_error_enum! {
+    MeigenError;
+    TooLong too_long(passed_length, max_length) => "流石に{}文字は長過ぎませんの...? せめて{}文字未満にしてくださいまし..."
 }
 
 impl MeigenEntry {
@@ -163,37 +224,14 @@ impl MeigenEntry {
         author: String,
         content: String,
         max_length: u128,
-    ) -> Result<MeigenEntry, TooLongMeigenError> {
+    ) -> Result<MeigenEntry, MeigenError> {
         let meigen_length = author.chars().count() + content.chars().count();
 
         if meigen_length as u128 >= max_length {
-            let err_text = format!(
-                "流石に{}文字は長過ぎませんの...? せめて{}文字未満にしてくださいまし...",
-                meigen_length, max_length
-            );
-
-            return Err(TooLongMeigenError(err_text));
+            return Err(MeigenError::too_long(meigen_length, max_length));
         }
 
         let result = Self { author, content };
         Ok(result)
-    }
-}
-
-impl SaveConfigError {
-    pub fn into_string(self) -> String {
-        self.0
-    }
-}
-
-impl TooLongMeigenError {
-    pub fn into_string(self) -> String {
-        self.0
-    }
-}
-
-impl Display for SaveConfigError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.0)
     }
 }
