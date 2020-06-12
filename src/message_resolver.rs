@@ -11,10 +11,12 @@ const FROM_ID_COMMAND: &str = "id";
 const RANDOM_COMMAND: &str = "random";
 const STAT_COMMAND: &str = "status";
 const HELP_COMMAND: &str = "help";
+const DELETE_COMMAND: &str = "delete";
 
 const MEIGEN_MAX_LENGTH: usize = 300;
 
 const TENSAI_BISYOUJYO_BOT_ID: u64 = 688788399275901029;
+const KAWAEMON_ID: u64 = 391857452360007680;
 
 pub struct MessageResolver {
     config: BotConfig,
@@ -48,7 +50,7 @@ impl MessageResolver {
         }
 
         let splitted = content
-            .split(" ")
+            .split(' ')
             .map(|x| x.to_string())
             .collect::<Vec<String>>();
 
@@ -58,17 +60,13 @@ impl MessageResolver {
 
         let sub_command = {
             let temp = splitted.get(1);
-            if let None = temp {
-                return self.help();
+            match temp {
+                Some(t) => t.to_ascii_lowercase(),
+                None => return self.help(),
             }
-            temp.unwrap().to_ascii_lowercase()
         };
 
-        let args = splitted
-            .iter()
-            .skip(2)
-            .map(|x| x.clone())
-            .collect::<Vec<String>>();
+        let args = splitted.iter().skip(2).cloned().collect::<Vec<String>>();
 
         let raw_args = content
             .chars()
@@ -84,11 +82,17 @@ impl MessageResolver {
             args,
         };
 
+        if message.author.id == KAWAEMON_ID {
+            if let DELETE_COMMAND = sub_command.as_str() {
+                return self.delete_meigen(parsed);
+            }
+        }
+
         match sub_command.as_str() {
             MAKE_COMMAND => self.make_meigen(parsed),
             LIST_COMMAND => self.list_meigen(parsed),
             FROM_ID_COMMAND => self.from_id_meigen(parsed),
-            RANDOM_COMMAND => self.random_meigen(parsed),
+            RANDOM_COMMAND => self.random_meigen(),
             STAT_COMMAND => self.stat_meigen(),
             HELP_COMMAND => self.help(),
             _ => self.help(),
@@ -132,7 +136,7 @@ impl MessageResolver {
     }
 
     fn from_id_meigen(&self, message: ParsedMessage) -> SolveResult {
-        if message.args.len() == 0 {
+        if message.args.is_empty() {
             return self.help();
         }
 
@@ -205,7 +209,7 @@ impl MessageResolver {
         Ok(Some(result))
     }
 
-    fn random_meigen(&self, _message: ParsedMessage) -> SolveResult {
+    fn random_meigen(&self) -> SolveResult {
         use rand::Rng;
 
         let mut rng = rand::thread_rng();
@@ -220,7 +224,41 @@ impl MessageResolver {
     }
 
     fn help(&self) -> SolveResult {
-        Ok(Some("未実装だカス ヘルプコマンドが来るよ".into()))
+        const HELP: &str = "\
+```asciidoc
+= meigen-bot-rust =
+g!meigen [subcommand] [args...]
+
+= subcommands =
+    help                    :: この文を出します
+    make [作者] [名言]        :: 名言を登録します
+    list [表示数=5] [ページ=1] :: 名言をリスト表示します
+    id [名言ID]              :: 指定されたIDの名言を表示します
+    random                  :: ランダムに名言を出します
+    status                  :: 現在登録されてる名言の数を出します
+    delete [名言ID]          :: 指定されたIDの名言を削除します かわえもんにしか使えません\
+```
+";
+
+        Ok(Some(HELP.into()))
+    }
+
+    fn delete_meigen(&mut self, message: ParsedMessage) -> SolveResult {
+        if message.args.len() == 0 {
+            return Err(CommandUsageError("引数が足りません".into()));
+        }
+
+        let id = message
+            .args
+            .get(0)
+            .unwrap()
+            .parse()
+            .map_err(|x| CommandUsageError(format!("引数が数字じゃないよ: {}", x)))?;
+
+        self.config
+            .delete_meigen(id)
+            .map(|_| Some("削除しました".into()))
+            .map_err(|x| CommandUsageError(x.to_string()))
     }
 
     fn parse_noobest_meigen(content: &str) -> Option<(usize, String)> {

@@ -5,7 +5,7 @@ pub struct CheckResult {
     pub reduced_codeblock: bool,
 }
 
-pub fn check_message(s: &str, blacklists: &Vec<String>) -> (String, CheckResult) {
+pub fn check_message(s: &str, blacklists: &[String]) -> (String, CheckResult) {
     let mut result = s.to_string();
     let mut check_result = CheckResult {
         replaced_back_quote: false,
@@ -26,7 +26,7 @@ pub fn check_message(s: &str, blacklists: &Vec<String>) -> (String, CheckResult)
             .to_string();
     }
 
-    if result.contains("`") {
+    if result.contains('`') {
         check_result.replaced_back_quote = true;
         result = result.replace("`", "'");
     }

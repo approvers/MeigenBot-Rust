@@ -1,4 +1,3 @@
-use log::trace;
 use serde::{Deserialize, Serialize};
 
 use std::fs::{self, File};
@@ -79,6 +78,7 @@ make_error_enum! {
     DeleteConfigFailed delete(e) => "ファイル削除に失敗しました: {}",
 
     ConfigAlreadyExist already_exist() => "Configファイルがすでに存在します",
+    MeigenNotFound nf(id) => "ID{}を持つ名言は存在しません",
 
     SerializeFailed serialize(e) => "Seralizeに失敗しました: {}",
     DeserializeFailed deserialize(e) => "Deserializeに失敗しました: {}",
@@ -86,7 +86,7 @@ make_error_enum! {
 
 impl BotConfig {
     pub fn load(path: &str) -> Result<Self, ConfigError> {
-        let file = File::open(path).map_err(|x| ConfigError::open(x))?;
+        let file = File::open(path).map_err(ConfigError::open)?;
 
         let mut result: Self = serde_yaml::from_reader(&file).map_err(ConfigError::deserialize)?;
         result.path = path.into();
@@ -133,6 +133,17 @@ impl BotConfig {
         self.save()?;
 
         Ok(self.meigens.iter().last().unwrap())
+    }
+
+    pub fn delete_meigen(&mut self, id: u128) -> Result<(), ConfigError> {
+        let index = self
+            .meigens
+            .iter()
+            .position(|x| x.id() == id)
+            .ok_or_else(|| ConfigError::nf(id))?;
+
+        self.meigens.remove(index);
+        self.save()
     }
 
     fn save(&self) -> Result<(), ConfigError> {
@@ -192,16 +203,13 @@ impl RegisteredMeigen {
             - (self.author.chars().count() as i32);
 
         if remain_length >= self.content().chars().count() as i32 {
-            trace!("Didn't tidied");
             return self.format();
         }
 
         if remain_length <= NO_SPACE_MSG.chars().count() as i32 {
-            trace!("There isn't enough space.");
             return format!("Meigen No.{}\n```{}```", self.id, NO_SPACE_MSG);
         }
 
-        trace!("Tidied with TIDY_SUFFIX");
         let content = self
             .content()
             .chars()
