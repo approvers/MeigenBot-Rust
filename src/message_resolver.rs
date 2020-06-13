@@ -72,8 +72,8 @@ impl MessageResolver {
 
         let raw_args = content
             .chars()
-            .skip(BASE_COMMAND.len() + 1)
-            .skip(sub_command.len() + 1)
+            .skip(BASE_COMMAND.chars().count() + 1)
+            .skip(sub_command.chars().count() + 1)
             .collect::<String>()
             .trim()
             .to_string();
@@ -117,7 +117,7 @@ impl MessageResolver {
     fn make_meigen(&mut self, message: ParsedMessage) -> SolveResult {
         let author = message.args.iter().next().unwrap().clone();
         let (meigen, checked_result) = {
-            let author_skipcount = message.raw_args.find(&author).unwrap() + author.len();
+            let author_skipcount = message.raw_args.find(&author).unwrap() + author.chars().count();
             let content = message
                 .raw_args
                 .trim()
@@ -237,7 +237,7 @@ impl MessageResolver {
             result += &format!("{}\n", self.config.meigens[index].format());
         }
 
-        if result.len() > MESSAGE_MAX_LENGTH {
+        if result.chars().count() > MESSAGE_MAX_LENGTH {
             return Err(CommandUsageError(
                 "長すぎて表示できないよ。もっと数を少なくしてね。".into(),
             ));
