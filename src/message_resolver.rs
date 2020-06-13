@@ -52,6 +52,7 @@ impl MessageResolver {
 
         let splitted = content
             .split(' ')
+            .filter(|x| !x.trim().is_empty())
             .map(|x| x.to_string())
             .collect::<Vec<String>>();
 
@@ -116,12 +117,12 @@ impl MessageResolver {
     fn make_meigen(&mut self, message: ParsedMessage) -> SolveResult {
         let author = message.args.iter().next().unwrap().clone();
         let (meigen, checked_result) = {
-            let author_len = author.chars().count();
+            let author_skipcount = message.raw_args.find(&author).unwrap() + author.len();
             let content = message
                 .raw_args
                 .trim()
                 .chars()
-                .skip(author_len)
+                .skip(author_skipcount)
                 .collect::<String>();
 
             check_message(content.trim(), &self.config.blacklist)
@@ -225,7 +226,7 @@ impl MessageResolver {
         };
 
         if count == 0 {
-            return Err(CommandUsageError("数は0以上にしましょうね".into()))
+            return Err(CommandUsageError("数は0以上にしましょうね".into()));
         }
 
         let mut rng = rand::thread_rng();
