@@ -14,6 +14,7 @@ const HELP_COMMAND: &str = "help";
 const DELETE_COMMAND: &str = "delete";
 
 const MEIGEN_MAX_LENGTH: usize = 300;
+const MESSAGE_MAX_LENGTH: usize = 500;
 
 const TENSAI_BISYOUJYO_BOT_ID: u64 = 688788399275901029;
 const KAWAEMON_ID: u64 = 391857452360007680;
@@ -92,7 +93,7 @@ impl MessageResolver {
             MAKE_COMMAND => self.make_meigen(parsed),
             LIST_COMMAND => self.list_meigen(parsed),
             FROM_ID_COMMAND => self.from_id_meigen(parsed),
-            RANDOM_COMMAND => self.random_meigen(),
+            RANDOM_COMMAND => self.random_meigen(parsed),
             STAT_COMMAND => self.stat_meigen(),
             HELP_COMMAND => self.help(),
             _ => self.help(),
@@ -154,7 +155,6 @@ impl MessageResolver {
         const LIST_MEIGEN_DEFAULT_COUNT: i32 = 5;
         const LIST_MEIGEN_DEFAULT_PAGE: i32 = 1;
         const LIST_MAX_LENGTH_PER_MEIGEN: usize = 50;
-        const LIST_MAX_LENGTH: usize = 500;
 
         #[inline]
         fn parse_or(default: i32, text: Option<&String>) -> Result<i32, CommandUsageError> {
@@ -200,7 +200,7 @@ impl MessageResolver {
             return Err(CommandUsageError("一致するものがなかったよ...".into()));
         }
 
-        if result.chars().count() > LIST_MAX_LENGTH {
+        if result.chars().count() > MESSAGE_MAX_LENGTH {
             return Err(CommandUsageError(
                 "結果が長すぎて表示できないよ。もっと値を少なくしてね".into(),
             ));
@@ -209,13 +209,40 @@ impl MessageResolver {
         Ok(Some(result))
     }
 
-    fn random_meigen(&self) -> SolveResult {
+    fn random_meigen(&self, message: ParsedMessage) -> SolveResult {
         use rand::Rng;
+        let count: usize = {
+            if message.args.len() > 0 {
+                message
+                    .args
+                    .get(0)
+                    .unwrap()
+                    .parse()
+                    .map_err(|_| CommandUsageError("数値が正しい数値じゃないよ".into()))?
+            } else {
+                1
+            }
+        };
+
+        if count == 0 {
+            return Err(CommandUsageError("数は0以上にしましょうね".into()))
+        }
 
         let mut rng = rand::thread_rng();
-        let index = rng.gen_range(0, self.config.meigens.len());
+        let mut result = String::new();
 
-        Ok(Some(self.config.meigens[index].format()))
+        for _ in 0..count {
+            let index = rng.gen_range(0, self.config.meigens.len());
+            result += &format!("{}\n", self.config.meigens[index].format());
+        }
+
+        if result.len() > MESSAGE_MAX_LENGTH {
+            return Err(CommandUsageError(
+                "長すぎて表示できないよ。もっと数を少なくしてね。".into(),
+            ));
+        }
+
+        Ok(Some(result))
     }
 
     fn stat_meigen(&self) -> SolveResult {
@@ -234,7 +261,7 @@ g!meigen [subcommand] [args...]
     make [作者] [名言]        :: 名言を登録します
     list [表示数=5] [ページ=1] :: 名言をリスト表示します
     id [名言ID]              :: 指定されたIDの名言を表示します
-    random                  :: ランダムに名言を出します
+    random [表示数=1]        :: ランダムに名言を出します
     status                  :: 現在登録されてる名言の数を出します
     delete [名言ID]          :: 指定されたIDの名言を削除します かわえもんにしか使えません\
 ```
