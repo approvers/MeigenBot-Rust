@@ -64,7 +64,7 @@ impl MessageResolver {
             let temp = splitted.get(1);
             match temp {
                 Some(t) => t.to_ascii_lowercase(),
-                None => return self.help(),
+                None => return self.help(None),
             }
         };
 
@@ -96,8 +96,8 @@ impl MessageResolver {
             FROM_ID_COMMAND => self.from_id_meigen(parsed),
             RANDOM_COMMAND => self.random_meigen(parsed),
             STAT_COMMAND => self.stat_meigen(),
-            HELP_COMMAND => self.help(),
-            _ => self.help(),
+            HELP_COMMAND => self.help(None),
+            _ => self.help(None),
         }
     }
 
@@ -115,6 +115,10 @@ impl MessageResolver {
     }
 
     fn make_meigen(&mut self, message: ParsedMessage) -> SolveResult {
+        if message.args.len() <= 1 {
+            return self.help(Some("引数が足りないよ"));
+        }
+
         let author = message.args.iter().next().unwrap().clone();
         let (meigen, checked_result) = {
             let author_skipcount = message.raw_args.find(&author).unwrap() + author.chars().count();
@@ -139,7 +143,7 @@ impl MessageResolver {
 
     fn from_id_meigen(&self, message: ParsedMessage) -> SolveResult {
         if message.args.is_empty() {
-            return self.help();
+            return self.help(Some("引数が足りないよ"));
         }
 
         let id = message.args[0]
@@ -219,7 +223,7 @@ impl MessageResolver {
                     .get(0)
                     .unwrap()
                     .parse()
-                    .map_err(|_| CommandUsageError("数値が正しい数値じゃないよ".into()))?
+                    .map_err(|_| CommandUsageError("引数が正しい数値じゃないよ".into()))?
             } else {
                 1
             }
@@ -251,8 +255,10 @@ impl MessageResolver {
         Ok(Some(text))
     }
 
-    fn help(&self) -> SolveResult {
-        const HELP: &str = "\
+    fn help(&self, message: Option<&str>) -> SolveResult {
+        //trim is not const fn...
+        #[allow(non_snake_case)]
+        let HELP_TEXT: &str = "
 ```asciidoc
 = meigen-bot-rust =
 g!meigen [subcommand] [args...]
@@ -264,16 +270,20 @@ g!meigen [subcommand] [args...]
     id [名言ID]              :: 指定されたIDの名言を表示します
     random [表示数=1]        :: ランダムに名言を出します
     status                  :: 現在登録されてる名言の数を出します
-    delete [名言ID]          :: 指定されたIDの名言を削除します かわえもんにしか使えません\
+    delete [名言ID]          :: 指定されたIDの名言を削除します かわえもんにしか使えません
 ```
-";
+"
+        .trim();
 
-        Ok(Some(HELP.into()))
+        match message {
+            Some(x) => Ok(Some(format!("{}\n{}", x, HELP_TEXT))),
+            None => Ok(Some(HELP_TEXT.into())),
+        }
     }
 
     fn delete_meigen(&mut self, message: ParsedMessage) -> SolveResult {
         if message.args.len() == 0 {
-            return Err(CommandUsageError("引数が足りません".into()));
+            return self.help(Some("引数が足りないよ"));
         }
 
         let id = message
