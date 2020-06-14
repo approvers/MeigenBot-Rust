@@ -87,7 +87,7 @@ fn send_message(text: &impl std::fmt::Display, channel_id: ChannelId, http: &Arc
 
 enum ClientEvent {
     OnReady(Context),
-    OnMessage(Message),
+    OnMessage(Box<Message>),
 }
 
 struct BotEvHandler {
@@ -102,7 +102,7 @@ impl EventHandler for BotEvHandler {
     }
 
     fn message(&self, _: Context, new_message: Message) {
-        let event = ClientEvent::OnMessage(new_message);
+        let event = ClientEvent::OnMessage(Box::new(new_message));
 
         self.channel.lock().unwrap().send(event).unwrap();
     }

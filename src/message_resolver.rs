@@ -119,7 +119,7 @@ impl MessageResolver {
             return self.help(Some("引数が足りないよ"));
         }
 
-        let author = message.args.iter().next().unwrap().clone();
+        let author = message.args.get(0).unwrap().clone();
         let (meigen, checked_result) = {
             let author_skipcount = message.raw_args.find(&author).unwrap() + author.chars().count();
             let content = message
@@ -216,18 +216,16 @@ impl MessageResolver {
 
     fn random_meigen(&self, message: ParsedMessage) -> SolveResult {
         use rand::Rng;
-        let count: usize = {
-            if message.args.len() > 0 {
-                message
-                    .args
-                    .get(0)
-                    .unwrap()
-                    .parse()
-                    .map_err(|_| CommandUsageError("引数が正しい数値じゃないよ".into()))?
-            } else {
-                1
-            }
-        };
+        let count: usize =
+            {
+                if !message.args.is_empty() {
+                    message.args.get(0).unwrap().parse().map_err(|x| {
+                        CommandUsageError(format!("引数が正しい数値じゃないよ: {}", x))
+                    })?
+                } else {
+                    1
+                }
+            };
 
         if count == 0 {
             return Err(CommandUsageError("数は0以上にしましょうね".into()));
@@ -282,7 +280,7 @@ g!meigen [subcommand] [args...]
     }
 
     fn delete_meigen(&mut self, message: ParsedMessage) -> SolveResult {
-        if message.args.len() == 0 {
+        if message.args.is_empty() {
             return self.help(Some("引数が足りないよ"));
         }
 
@@ -301,10 +299,8 @@ g!meigen [subcommand] [args...]
 
     fn parse_noobest_meigen(content: &str) -> Option<(usize, String)> {
         let mut started = false;
-        let mut count = 0;
         let mut meigen = String::new();
-        for line in content.lines() {
-            count += 1;
+        for (count, line) in content.lines().enumerate() {
             if line.trim() == "```" {
                 if !started {
                     started = true;
