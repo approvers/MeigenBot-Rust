@@ -19,6 +19,9 @@ const MESSAGE_MAX_LENGTH: usize = 500;
 const TENSAI_BISYOUJYO_BOT_ID: u64 = 688788399275901029;
 const KAWAEMON_ID: u64 = 391857452360007680;
 
+const SPACE: char = ' ';
+const FULL_WIDTH_SPACE: char = '　';
+
 pub struct MessageResolver {
     config: BotConfig,
 }
@@ -51,7 +54,8 @@ impl MessageResolver {
         }
 
         let splitted = content
-            .split(' ')
+            .split(SPACE)
+            .flat_map(|x| x.split(FULL_WIDTH_SPACE))
             .filter(|x| !x.trim().is_empty())
             .map(|x| x.to_string())
             .collect::<Vec<String>>();

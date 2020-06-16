@@ -4,6 +4,7 @@ use std::fs::{self, File};
 use std::io::{BufWriter, Write};
 use std::path::Path;
 
+#[macro_export]
 macro_rules! make_error_enum {
     ($enum_name:ident; $($variant:ident => $description:expr),+ $(,)?) => {
         #[derive(Debug)]
