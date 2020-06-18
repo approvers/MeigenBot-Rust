@@ -9,6 +9,7 @@ const MAKE_COMMAND: &str = "make";
 const LIST_COMMAND: &str = "list";
 const FROM_ID_COMMAND: &str = "id";
 const RANDOM_COMMAND: &str = "random";
+const BY_AUTHOR_COMMAND: &str = "author";
 const STAT_COMMAND: &str = "status";
 const HELP_COMMAND: &str = "help";
 const DELETE_COMMAND: &str = "delete";
@@ -48,10 +49,6 @@ impl MessageResolver {
 
     pub fn solve(&mut self, message: &Message) -> SolveResult {
         let content = message.content.trim().to_string();
-
-        if message.author.id == TENSAI_BISYOUJYO_BOT_ID {
-            return self.copy(content);
-        }
 
         let splitted = content
             .split(SPACE)
@@ -99,6 +96,7 @@ impl MessageResolver {
             LIST_COMMAND => self.list_meigen(parsed),
             FROM_ID_COMMAND => self.from_id_meigen(parsed),
             RANDOM_COMMAND => self.random_meigen(parsed),
+            BY_AUTHOR_COMMAND => self.author_meigen(parsed),
             STAT_COMMAND => self.stat_meigen(),
             HELP_COMMAND => self.help(None),
             _ => self.help(None),
@@ -163,57 +161,41 @@ impl MessageResolver {
     fn list_meigen(&self, message: ParsedMessage) -> SolveResult {
         const LIST_MEIGEN_DEFAULT_COUNT: i32 = 5;
         const LIST_MEIGEN_DEFAULT_PAGE: i32 = 1;
-        const LIST_MAX_LENGTH_PER_MEIGEN: usize = 50;
-
-        #[inline]
-        fn parse_or(default: i32, text: Option<&String>) -> Result<i32, CommandUsageError> {
-            match text {
-                Some(num) => num
-                    .parse()
-                    .map_err(|x| CommandUsageError(format!("引数が正しい数値じゃないよ: {}", x))),
-                None => Ok(default),
-            }
-        }
 
         // 表示する数
         let show_count = parse_or(LIST_MEIGEN_DEFAULT_COUNT, message.args.get(0))?;
         let page = parse_or(LIST_MEIGEN_DEFAULT_PAGE, message.args.get(1))?;
+        let meigen = self
+            .config
+            .meigens
+            .iter()
+            .collect::<Vec<&RegisteredMeigen>>();
 
-        let range = {
-            use std::convert::TryInto;
-            let meigens_end_index = self.config.meigens.len() as i32;
-            let from: usize = (meigens_end_index - show_count + 1 - (show_count * (page - 1)) - 1)
-                .try_into()
-                .map_err(|x| CommandUsageError(format!("引数が正しい数値じゃないよ: {}", x)))?;
+        let result = listify(meigen.as_slice(), show_count, page)?;
 
-            let to: usize = (meigens_end_index - (show_count * (page - 1)))
-                .try_into()
-                .map_err(|x| CommandUsageError(format!("引数が正しい数値じゃないよ: {}", x)))?;
+        Ok(Some(result))
+    }
 
-            from..to
-        };
+    fn author_meigen(&self, message: ParsedMessage) -> SolveResult {
+        const LIST_MEIGEN_DEFAULT_COUNT: i32 = 5;
+        const LIST_MEIGEN_DEFAULT_PAGE: i32 = 1;
 
-        let mut result = String::new();
-
-        for index in range {
-            let meigen = match self.config.meigens.get(index) {
-                Some(m) => m,
-                None => break,
-            };
-
-            let formatted = meigen.tidy_format(LIST_MAX_LENGTH_PER_MEIGEN);
-            result = format!("{}\n{}", result, &formatted);
+        if message.args.len() == 0 {
+            return self.help(Some("引数が足りないよ"));
         }
 
-        if result.is_empty() {
-            return Err(CommandUsageError("一致するものがなかったよ...".into()));
-        }
+        let target_author = &message.args[0];
+        let show_count = parse_or(LIST_MEIGEN_DEFAULT_COUNT, message.args.get(1))?;
+        let page = parse_or(LIST_MEIGEN_DEFAULT_PAGE, message.args.get(2))?;
 
-        if result.chars().count() > MESSAGE_MAX_LENGTH {
-            return Err(CommandUsageError(
-                "結果が長すぎて表示できないよ。もっと値を少なくしてね".into(),
-            ));
-        }
+        let filtered = self
+            .config
+            .meigens
+            .iter()
+            .filter(|x| x.author().contains(target_author))
+            .collect::<Vec<&RegisteredMeigen>>();
+
+        let result = listify(filtered.as_slice(), show_count, page)?;
 
         Ok(Some(result))
     }
@@ -266,13 +248,14 @@ impl MessageResolver {
 g!meigen [subcommand] [args...]
 
 = subcommands =
-    help                    :: この文を出します
-    make [作者] [名言]        :: 名言を登録します
-    list [表示数=5] [ページ=1] :: 名言をリスト表示します
-    id [名言ID]              :: 指定されたIDの名言を表示します
-    random [表示数=1]        :: ランダムに名言を出します
-    status                  :: 現在登録されてる名言の数を出します
-    delete [名言ID]          :: 指定されたIDの名言を削除します かわえもんにしか使えません
+    help                            :: この文を出します
+    make [作者] [名言]                :: 名言を登録します
+    list [表示数=5] [ページ=1]         :: 名言をリスト表示します
+    id [名言ID]                      :: 指定されたIDの名言を表示します
+    author [作者] [表示数=5] [ページ=1] :: 指定された作者によって作成された名言を一覧表示します
+    random [表示数=1]                 :: ランダムに名言を出します
+    status                          :: 現在登録されてる名言の数を出します
+    delete [名言ID]                  :: 指定されたIDの名言を削除します かわえもんにしか使えません
 ```
 "
         .trim();
@@ -300,98 +283,78 @@ g!meigen [subcommand] [args...]
             .map(|_| Some("削除しました".into()))
             .map_err(|x| CommandUsageError(x.to_string()))
     }
+}
 
-    fn parse_noobest_meigen(content: &str) -> Option<(usize, String)> {
-        let mut started = false;
-        let mut meigen = String::new();
-        for (count, line) in content.lines().enumerate() {
-            if line.trim() == "```" {
-                if !started {
-                    started = true;
-                    continue;
-                }
-                if started {
-                    return Some((count, meigen));
-                }
-            }
+#[inline]
+fn parse_or(default: i32, text: Option<&String>) -> Result<i32, CommandUsageError> {
+    match text {
+        Some(num) => num
+            .parse()
+            .map_err(|x| CommandUsageError(format!("引数が正しい数値じゃないよ: {}", x))),
+        None => Ok(default),
+    }
+}
 
-            if started {
-                meigen += &format!("{}\n", line);
-            }
+#[inline]
+fn listify(
+    slice: &[&RegisteredMeigen],
+    show_count: i32,
+    page: i32,
+) -> Result<String, CommandUsageError> {
+    const MAX_LENGTH_PER_MEIGEN: usize = 50;
+
+    let range = {
+        use std::convert::TryInto;
+
+        let meigens_end_index = slice.len() as i32;
+        if meigens_end_index > show_count {
+            let from: usize = {
+                let temp = meigens_end_index - show_count - (show_count * (page - 1));
+                temp.try_into().map_err(|x| {
+                    CommandUsageError(format!(
+                        "引数が正しい数値じゃないよ: {}, from was {}",
+                        x, temp
+                    ))
+                })?
+            };
+
+            let to: usize = {
+                let temp = meigens_end_index - (show_count * (page - 1));
+                temp.try_into().map_err(|x| {
+                    CommandUsageError(format!(
+                        "引数が正しい数値じゃないよ: {}, to was {}",
+                        x, temp
+                    ))
+                })?
+            };
+
+            from..to
+        } else {
+            0..(meigens_end_index as usize)
         }
+    };
 
-        None
+    let mut result = String::new();
+
+    for index in range {
+        let meigen = match slice.get(index) {
+            Some(m) => m,
+            None => break,
+        };
+
+        let formatted = meigen.tidy_format(MAX_LENGTH_PER_MEIGEN);
+        result = format!("{}\n{}", result, &formatted);
     }
 
-    fn copy(&mut self, mut noobest_meigen: String) -> SolveResult {
-        let mut ok_count = 0;
-        let mut dup_count = 0;
-        let mut err_count = 0;
-        'main: loop {
-            let parse_result = Self::parse_noobest_meigen(&noobest_meigen);
-            if parse_result.is_none() {
-                break 'main;
-            }
-
-            let (skip_count, meigen_content) = parse_result.unwrap();
-
-            let line_count = meigen_content.lines().count();
-
-            //最後の行だけ取り出して、---をスキップしたところが名前
-            let author = meigen_content
-                .lines()
-                .last()
-                .unwrap()
-                .chars()
-                .skip("    --- ".len())
-                .collect::<String>()
-                .trim()
-                .to_string();
-
-            let content = meigen_content
-                .lines()
-                .take(line_count - 1)
-                .fold(String::new(), |a, b| format!("{}\n{}", a, b))
-                .trim()
-                .to_string();
-
-            let duplicated = self
-                .config
-                .meigens
-                .iter()
-                .filter(|m| m.author() == author)
-                .filter(|m| m.content() == content)
-                .count()
-                != 0;
-
-            if duplicated {
-                dup_count += 1;
-            } else {
-                let resiger_result = self.register_meigen(author, content);
-                match resiger_result {
-                    Ok(_) => ok_count += 1,
-                    Err(e) => {
-                        println!("登録失敗: {}", e);
-                        err_count += 1;
-                    }
-                }
-            }
-
-            noobest_meigen = noobest_meigen
-                .lines()
-                .skip(skip_count)
-                .fold(String::new(), |a, b| format!("{}\n{}", a, b));
-        }
-
-        if ok_count == 0 {
-            return Ok(None);
-        }
-
-        let text = format!(
-            "{}個インポートしました({}個エラー、{}個はすでに登録済み)",
-            ok_count, err_count, dup_count
-        );
-
-        Ok(Some(text))
+    if result.is_empty() {
+        return Err(CommandUsageError("一致するものがなかったよ...".into()));
     }
+
+    if result.chars().count() > MESSAGE_MAX_LENGTH {
+        return Err(CommandUsageError(
+            "結果が長すぎて表示できないよ。もっと値を少なくしてね".into(),
+        ));
+    }
+
+    Ok(result)
 }
