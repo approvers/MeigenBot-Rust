@@ -39,15 +39,13 @@ impl FileDB {
         Ok(result)
     }
 
-    pub fn create_new_conf(path_str: &str) -> Self {
-        let new_conf = Self {
-            path: path_str.to_string(),
+    pub fn new(path: &str) -> Self {
+        Self {
+            path: path.to_string(),
             current_id: 0,
             meigens: vec![],
             blacklist: vec![],
-        };
-
-        return new_conf;
+        }
     }
 
     pub fn save(&self) -> Result<(), FileDBError> {

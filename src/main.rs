@@ -75,7 +75,7 @@ fn main() {
         .unwrap();
 
     if env::args().any(|x| x == "--newconf") {
-        FileDB::create_new_conf(NEW_CONF_FILE_NAME).save().unwrap();
+        FileDB::new(NEW_CONF_FILE_NAME).save().unwrap();
         return;
     }
 
@@ -132,10 +132,8 @@ fn call_command(
         }
     };
 
-    if is_admin {
-        if sub_command == DELETE_COMMAND {
-            return commands::delete(db, message);
-        }
+    if is_admin && sub_command == DELETE_COMMAND {
+        return commands::delete(db, message);
     }
 
     match sub_command.as_str() {
