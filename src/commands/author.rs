@@ -18,13 +18,13 @@ pub fn author(db: &impl Database, message: ParsedMessage) -> Result {
         .args
         .get(1)
         .map_or(Ok(LIST_MEIGEN_DEFAULT_COUNT), |x| x.parse())
-        .map_err(|e| Error::num_parse_fail(e))?;
+        .map_err(Error::num_parse_fail)?;
 
     let page = message
         .args
         .get(2)
         .map_or(Ok(LIST_MEIGEN_DEFAULT_PAGE), |x| x.parse())
-        .map_err(|e| Error::num_parse_fail(e))?;
+        .map_err(Error::num_parse_fail)?;
 
     let filtered = db
         .meigens()

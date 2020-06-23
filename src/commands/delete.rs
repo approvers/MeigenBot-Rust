@@ -17,5 +17,5 @@ pub fn delete(db: &mut impl Database, message: ParsedMessage) -> Result {
 
     db.delete_meigen(id)
         .map(|_| "削除しました".into())
-        .map_err(|e| Error::save_failed(e))
+        .map_err(Error::save_failed)
 }

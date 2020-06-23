@@ -27,7 +27,7 @@ pub fn parse_message(message: &Message) -> Option<ParsedMessage> {
         return None;
     }
 
-    let sub_command = splitted.next().map(|x| x.to_string());
+    let sub_command = splitted.next();
 
     let args = splitted.collect::<Vec<String>>();
 
