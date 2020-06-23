@@ -12,78 +12,28 @@ use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
 use std::thread;
 
-mod botconfig;
-mod message_checker;
-mod message_resolver;
+mod commands;
+mod db;
+mod message_parser;
 
-use botconfig::BotConfig;
-use message_resolver::MessageResolver;
+use db::filedb::FileDB;
+use db::Database;
 
 const CONF_FILE_NAME: &str = "./conf.yaml";
 const NEW_CONF_FILE_NAME: &str = "./conf.new.yaml";
 
-fn main() {
-    let log_level = if cfg!(debug) {
-        4 //trace
-    } else {
-        2 //info
-    };
+const MAKE_COMMAND: &str = "make";
+const LIST_COMMAND: &str = "list";
+const FROM_ID_COMMAND: &str = "id";
+const RANDOM_COMMAND: &str = "random";
+const BY_AUTHOR_COMMAND: &str = "author";
+const STAT_COMMAND: &str = "status";
+const HELP_COMMAND: &str = "help";
+const DELETE_COMMAND: &str = "delete";
 
-    stderrlog::new()
-        .module(module_path!())
-        .verbosity(log_level)
-        .timestamp(stderrlog::Timestamp::Second)
-        .init()
-        .unwrap();
+const KAWAEMON_ID: u64 = 391857452360007680;
 
-    if env::args().any(|x| x == "--newconf") {
-        BotConfig::create_new_conf(NEW_CONF_FILE_NAME).unwrap();
-        return;
-    }
-
-    let conf = BotConfig::load(CONF_FILE_NAME).unwrap();
-    let token = conf.discord_token.clone();
-
-    let (tx, rx) = mpsc::channel();
-    let handler = BotEvHandler {
-        channel: Mutex::new(tx),
-    };
-
-    thread::spawn(move || {
-        let mut client = Client::new(token, handler).unwrap();
-        client.start().unwrap();
-    });
-
-    let mut solver = MessageResolver::new(conf);
-    let mut context = None;
-    for event in rx {
-        match event {
-            ClientEvent::OnReady(ctx) => {
-                println!("Bot is ready!");
-                context = Some(ctx);
-            }
-
-            ClientEvent::OnMessage(msg) => {
-                let ctx = context.as_ref().expect("event was called before ready");
-
-                match solver.solve(&msg) {
-                    Ok(e) => {
-                        if let Some(text) = e {
-                            send_message(&text, msg.channel_id, &ctx.http)
-                        }
-                    }
-                    Err(e) => send_message(&e, msg.channel_id, &ctx.http),
-                }
-            }
-        }
-    }
-}
-
-fn send_message(text: &impl std::fmt::Display, channel_id: ChannelId, http: &Arc<Http>) {
-    if let Err(e) = channel_id.say(http, text) {
-        println!("Failed to send message \"{}\"\n{}", &text, e);
-    }
-}
+const MESSAGE_MAX_LENGTH: usize = 1000;
 
 enum ClientEvent {
     OnReady(Context),
@@ -105,5 +55,103 @@ impl EventHandler for BotEvHandler {
         let event = ClientEvent::OnMessage(Box::new(new_message));
 
         self.channel.lock().unwrap().send(event).unwrap();
+    }
+}
+
+fn main() {
+    let log_level = {
+        if cfg!(debug) {
+            4 //trace
+        } else {
+            2 //info
+        }
+    };
+
+    stderrlog::new()
+        .module(module_path!())
+        .verbosity(log_level)
+        .timestamp(stderrlog::Timestamp::Second)
+        .init()
+        .unwrap();
+
+    if env::args().any(|x| x == "--newconf") {
+        FileDB::create_new_conf(NEW_CONF_FILE_NAME).save().unwrap();
+        return;
+    }
+
+    let token = env::var("DISCORD_TOKEN").expect("Set DISCORD_TOKEN");
+
+    let mut db = FileDB::load(CONF_FILE_NAME).expect("Open database file failed");
+
+    let (tx, rx) = mpsc::channel();
+    let handler = BotEvHandler {
+        channel: Mutex::new(tx),
+    };
+
+    thread::spawn(move || {
+        Client::new(token, handler).unwrap().start().unwrap();
+    });
+
+    let mut context = None;
+    for event in rx {
+        match event {
+            ClientEvent::OnReady(ctx) => {
+                println!("Bot is ready!");
+                context = Some(ctx);
+            }
+
+            ClientEvent::OnMessage(msg) => {
+                let ctx = context.as_ref().expect("event was called before ready");
+                let is_admin = msg.author.id == KAWAEMON_ID;
+
+                if let Some(parsed_msg) = message_parser::parse_message(&msg) {
+                    let send_msg = {
+                        match call_command(&mut db, parsed_msg, is_admin) {
+                            Ok(m) => m,
+                            Err(e) => e.to_string(),
+                        }
+                    };
+
+                    send_message(&send_msg, msg.channel_id, &ctx.http);
+                }
+            }
+        }
+    }
+}
+
+// ParsedMessageから、それぞれのコマンド処理を呼び出し、その結果を返す
+fn call_command(
+    db: &mut impl Database,
+    message: message_parser::ParsedMessage,
+    is_admin: bool,
+) -> commands::Result {
+    let sub_command = {
+        match message.sub_command.as_ref() {
+            Some(s) => s,
+            None => return commands::help(),
+        }
+    };
+
+    if is_admin {
+        if sub_command == DELETE_COMMAND {
+            return commands::delete(db, message);
+        }
+    }
+
+    match sub_command.as_str() {
+        MAKE_COMMAND => commands::make(db, message),
+        LIST_COMMAND => commands::list(db, message),
+        FROM_ID_COMMAND => commands::id(db, message),
+        RANDOM_COMMAND => commands::random(db, message),
+        BY_AUTHOR_COMMAND => commands::author(db, message),
+        STAT_COMMAND => commands::status(db),
+        HELP_COMMAND => commands::help(),
+        _ => commands::help(),
+    }
+}
+
+fn send_message(text: &impl std::fmt::Display, channel_id: ChannelId, http: &Arc<Http>) {
+    if let Err(e) = channel_id.say(http, text) {
+        println!("Failed to send message \"{}\"\n{}", &text, e);
     }
 }
