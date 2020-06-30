@@ -3,7 +3,7 @@ use crate::commands::{Error, Result};
 use crate::db::MeigenDatabase;
 use crate::db::RegisteredMeigen;
 use crate::message_parser::ParsedMessage;
-use std::str::FromStr;
+
 
 const LIST_MEIGEN_DEFAULT_COUNT: i32 = 5;
 const LIST_MEIGEN_DEFAULT_PAGE: i32 = 1;

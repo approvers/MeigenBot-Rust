@@ -1,4 +1,4 @@
-use crate::commands::meigen_format;
+
 use crate::commands::{Error, Result};
 use crate::db::MeigenDatabase;
 use crate::db::RegisteredMeigen;
@@ -14,7 +14,7 @@ pub fn random(db: &impl MeigenDatabase, message: ParsedMessage) -> Result {
     };
 
     let meigen_count = db.meigens().len();
-    let mut result = String::new();
+    let _result = String::new();
 
     let rands = gen_rand_vec(count, 0, meigen_count);
 

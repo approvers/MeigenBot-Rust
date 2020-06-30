@@ -19,7 +19,7 @@ mod make_error_enum;
 mod message_parser;
 
 use db::filedb::FileDB;
-use db::MeigenDatabase;
+
 
 const CONF_FILE_NAME: &str = "./conf.yaml";
 const NEW_CONF_FILE_NAME: &str = "./conf.new.yaml";

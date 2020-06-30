@@ -16,7 +16,7 @@ pub fn id(db: &impl MeigenDatabase, message: ParsedMessage) -> Result {
         .meigens()
         .iter()
         .find(|x| x.id == id)
-        .ok_or(Error::meigen_nf(id))?;
+        .ok_or_else(|| Error::meigen_nf(id))?;
 
     Ok(meigen_format(found_meigen))
 }
