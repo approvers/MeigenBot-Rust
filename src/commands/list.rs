@@ -1,6 +1,6 @@
 use crate::commands::listify;
 use crate::commands::{Error, Result};
-use crate::db::Database;
+use crate::db::MeigenDatabase;
 use crate::db::RegisteredMeigen;
 use crate::message_parser::ParsedMessage;
 use std::str::FromStr;
@@ -8,7 +8,7 @@ use std::str::FromStr;
 const LIST_MEIGEN_DEFAULT_COUNT: i32 = 5;
 const LIST_MEIGEN_DEFAULT_PAGE: i32 = 1;
 
-pub fn list(db: &impl Database, message: ParsedMessage) -> Result {
+pub fn list(db: &impl MeigenDatabase, message: ParsedMessage) -> Result {
     // 表示する数
     let show_count = message
         .args
@@ -26,15 +26,4 @@ pub fn list(db: &impl Database, message: ParsedMessage) -> Result {
 
     let result = listify(meigens.as_slice(), show_count, page)?;
     Ok(result)
-}
-
-#[inline]
-fn parse_or<V: FromStr>(
-    default: V,
-    text: Option<&String>,
-) -> std::result::Result<V, <V as FromStr>::Err> {
-    match text {
-        Some(num) => num.parse(),
-        None => Ok(default),
-    }
 }

@@ -1,9 +1,9 @@
 use crate::commands::Error;
 use crate::commands::Result;
-use crate::db::Database;
+use crate::db::MeigenDatabase;
 use crate::message_parser::ParsedMessage;
 
-pub fn delete(db: &mut impl Database, message: ParsedMessage) -> Result {
+pub fn delete(db: &mut impl MeigenDatabase, message: ParsedMessage) -> Result {
     if message.args.is_empty() {
         return Err(Error::not_enough_args());
     }
@@ -15,7 +15,6 @@ pub fn delete(db: &mut impl Database, message: ParsedMessage) -> Result {
         .parse()
         .map_err(|e| Error::arg_num_parse_fail(1, e))?;
 
-    db.delete_meigen(id)
-        .map(|_| "削除しました".into())
-        .map_err(Error::save_failed)
+    db.delete_meigen(id).map_err(Error::save_failed)?;
+    Ok("削除しました".into())
 }

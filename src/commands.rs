@@ -37,8 +37,50 @@ crate::make_error_enum! {
 
 use crate::db::RegisteredMeigen;
 
+fn internal_format(id: usize, author: &str, content: &str) -> String {
+    format!(
+        "Meigen No.{}\n```\n{}\n    --- {}\n```",
+        id, content, author
+    )
+}
+
+pub fn meigen_format(meigen: &RegisteredMeigen) -> String {
+    internal_format(meigen.id, &meigen.author, &meigen.content)
+}
+
 #[inline]
-pub(self) fn listify(slice: &[&RegisteredMeigen], show_count: i32, page: i32) -> Result {
+fn meigen_tidy_format(meigen: &RegisteredMeigen, max_length: usize) -> String {
+    const BASE: &str = "Meigen No.\n```\n\n    --- \n```";
+    const TIDY_SUFFIX: &str = "...";
+    const NO_SPACE_MSG: &str = "スペースが足りない...";
+
+    let remain_length = (max_length as i32)
+        - (BASE.chars().count() as i32)
+        - (meigen.author.chars().count() as i32);
+
+    // 十分なスペースがあるなら、そのままフォーマットして返す
+    if remain_length >= meigen.content.chars().count() as i32 {
+        return meigen_format(meigen);
+    }
+
+    // 作者名が長すぎるなどの理由で、...を使った省略でも入らない場合は、NO_SPACE_MSGを突っ込む
+    if remain_length <= NO_SPACE_MSG.chars().count() as i32 {
+        return format!("Meigen No.{}\n```{}```", meigen.id, NO_SPACE_MSG);
+    }
+
+    // 上記どれにも引っかからない場合、最後を...で削って文字列を減らして返す
+    let content = meigen
+        .content
+        .chars()
+        .take((remain_length - TIDY_SUFFIX.len() as i32) as usize)
+        .chain(TIDY_SUFFIX.chars())
+        .collect::<String>();
+
+    internal_format(meigen.id, &meigen.author, &content)
+}
+
+#[inline]
+fn listify(slice: &[&RegisteredMeigen], show_count: i32, page: i32) -> Result {
     const LIST_MAX_LENGTH: usize = 500;
     const MAX_LENGTH_PER_MEIGEN: usize = 50;
 
@@ -68,12 +110,14 @@ pub(self) fn listify(slice: &[&RegisteredMeigen], show_count: i32, page: i32) ->
     let mut result = String::new();
 
     for index in range {
-        let meigen = match slice.get(index) {
-            Some(m) => m,
-            None => break,
+        let meigen = {
+            match slice.get(index) {
+                Some(m) => m,
+                None => break,
+            }
         };
 
-        let formatted = meigen.tidy_format(MAX_LENGTH_PER_MEIGEN);
+        let formatted = meigen_tidy_format(meigen, MAX_LENGTH_PER_MEIGEN);
         result += &format!("\n{}", &formatted);
     }
 

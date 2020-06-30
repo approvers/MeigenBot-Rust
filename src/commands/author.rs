@@ -1,10 +1,10 @@
 use crate::commands::listify;
 use crate::commands::{Error, Result};
-use crate::db::Database;
+use crate::db::MeigenDatabase;
 use crate::db::RegisteredMeigen;
 use crate::message_parser::ParsedMessage;
 
-pub fn author(db: &impl Database, message: ParsedMessage) -> Result {
+pub fn author(db: &impl MeigenDatabase, message: ParsedMessage) -> Result {
     const LIST_MEIGEN_DEFAULT_COUNT: i32 = 5;
     const LIST_MEIGEN_DEFAULT_PAGE: i32 = 1;
 
@@ -29,10 +29,8 @@ pub fn author(db: &impl Database, message: ParsedMessage) -> Result {
     let filtered = db
         .meigens()
         .iter()
-        .filter(|x| x.author().contains(target_author))
+        .filter(|x| x.author.contains(target_author))
         .collect::<Vec<&RegisteredMeigen>>();
 
-    let result = listify(filtered.as_slice(), show_count, page)?;
-
-    Ok(result)
+    listify(filtered.as_slice(), show_count, page)
 }

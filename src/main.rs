@@ -12,24 +12,16 @@ use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
 use std::thread;
 
+mod command_registry;
 mod commands;
 mod db;
 mod message_parser;
 
 use db::filedb::FileDB;
-use db::Database;
+use db::MeigenDatabase;
 
 const CONF_FILE_NAME: &str = "./conf.yaml";
 const NEW_CONF_FILE_NAME: &str = "./conf.new.yaml";
-
-const MAKE_COMMAND: &str = "make";
-const LIST_COMMAND: &str = "list";
-const FROM_ID_COMMAND: &str = "id";
-const RANDOM_COMMAND: &str = "random";
-const BY_AUTHOR_COMMAND: &str = "author";
-const STAT_COMMAND: &str = "status";
-const HELP_COMMAND: &str = "help";
-const DELETE_COMMAND: &str = "delete";
 
 const KAWAEMON_ID: u64 = 391857452360007680;
 
@@ -102,11 +94,12 @@ fn main() {
 
             ClientEvent::OnMessage(msg) => {
                 let ctx = context.as_ref().expect("event was called before ready");
+
                 let is_admin = msg.author.id == KAWAEMON_ID;
 
                 if let Some(parsed_msg) = message_parser::parse_message(&msg) {
                     let send_msg = {
-                        match call_command(&mut db, parsed_msg, is_admin) {
+                        match command_registry::call_command(&mut db, parsed_msg, is_admin) {
                             Ok(m) => m,
                             Err(e) => e.to_string(),
                         }
@@ -116,35 +109,6 @@ fn main() {
                 }
             }
         }
-    }
-}
-
-// ParsedMessageから、それぞれのコマンド処理を呼び出し、その結果を返す
-fn call_command(
-    db: &mut impl Database,
-    message: message_parser::ParsedMessage,
-    is_admin: bool,
-) -> commands::Result {
-    let sub_command = {
-        match message.sub_command.as_ref() {
-            Some(s) => s,
-            None => return commands::help(),
-        }
-    };
-
-    if is_admin && sub_command == DELETE_COMMAND {
-        return commands::delete(db, message);
-    }
-
-    match sub_command.as_str() {
-        MAKE_COMMAND => commands::make(db, message),
-        LIST_COMMAND => commands::list(db, message),
-        FROM_ID_COMMAND => commands::id(db, message),
-        RANDOM_COMMAND => commands::random(db, message),
-        BY_AUTHOR_COMMAND => commands::author(db, message),
-        STAT_COMMAND => commands::status(db),
-        HELP_COMMAND => commands::help(),
-        _ => commands::help(),
     }
 }
 

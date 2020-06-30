@@ -38,7 +38,7 @@ macro_rules! make_error_enum {
         }
     };
 }
-pub trait Database {
+pub trait MeigenDatabase {
     type Error: std::fmt::Display;
 
     // 名言を保存する。
@@ -51,11 +51,12 @@ pub trait Database {
     fn delete_meigen(&mut self, id: usize) -> Result<(), Self::Error>;
 }
 
+#[readonly::make]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RegisteredMeigen {
-    id: usize,
-    author: String,
-    content: String,
+    pub id: usize,
+    pub author: String,
+    pub content: String,
 }
 
 #[derive(Debug)]
@@ -71,59 +72,6 @@ impl RegisteredMeigen {
             author: entry.author,
             content: entry.content,
         }
-    }
-
-    pub fn id(&self) -> usize {
-        self.id
-    }
-
-    pub fn author(&self) -> &str {
-        &self.author
-    }
-
-    pub fn content(&self) -> &str {
-        &self.content
-    }
-
-    fn _internal_format(id: usize, author: &str, content: &str) -> String {
-        format!(
-            "Meigen No.{}\n```\n{}\n    --- {}\n```",
-            id, content, author
-        )
-    }
-
-    pub fn format(&self) -> String {
-        Self::_internal_format(self.id, &self.author, &self.content())
-    }
-
-    pub fn tidy_format(&self, max_length: usize) -> String {
-        const BASE: &str = "Meigen No.\n```\n\n    --- \n```";
-        const TIDY_SUFFIX: &str = "...";
-        const NO_SPACE_MSG: &str = "スペースが足りない...";
-
-        let remain_length = (max_length as i32)
-            - (BASE.chars().count() as i32)
-            - (self.author.chars().count() as i32);
-
-        // 十分なスペースがあるなら、そのままフォーマットして返す
-        if remain_length >= self.content().chars().count() as i32 {
-            return self.format();
-        }
-
-        // 作者名が長すぎるなどの理由で、...を使った省略でも入らない場合は、NO_SPACE_MSGを突っ込む
-        if remain_length <= NO_SPACE_MSG.chars().count() as i32 {
-            return format!("Meigen No.{}\n```{}```", self.id, NO_SPACE_MSG);
-        }
-
-        // 上記どれにも引っかからない場合、最後を...で削って文字列を減らして返す
-        let content = self
-            .content()
-            .chars()
-            .take((remain_length - TIDY_SUFFIX.len() as i32) as usize)
-            .chain(TIDY_SUFFIX.chars())
-            .collect::<String>();
-
-        Self::_internal_format(self.id, &self.author, &content)
     }
 }
 

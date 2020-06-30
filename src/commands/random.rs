@@ -1,8 +1,9 @@
+use crate::commands::format;
 use crate::commands::{Error, Result};
-use crate::db::Database;
+use crate::db::MeigenDatabase;
 use crate::message_parser::ParsedMessage;
 
-pub fn random(db: &impl Database, message: ParsedMessage) -> Result {
+pub fn random(db: &impl MeigenDatabase, message: ParsedMessage) -> Result {
     use rand::Rng;
     let count: usize = {
         message
@@ -18,7 +19,7 @@ pub fn random(db: &impl Database, message: ParsedMessage) -> Result {
 
     for _ in 0..count {
         let index = rng.gen_range(0, meigen_count);
-        result += &format!("{}\n", db.meigens()[index].format());
+        result += &format!("{}\n", format(&db.meigens()[index]));
     }
 
     Ok(result)

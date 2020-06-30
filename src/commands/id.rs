@@ -1,8 +1,9 @@
+use crate::commands::format;
 use crate::commands::{Error, Result};
-use crate::db::Database;
+use crate::db::MeigenDatabase;
 use crate::message_parser::ParsedMessage;
 
-pub fn id(db: &impl Database, message: ParsedMessage) -> Result {
+pub fn id(db: &impl MeigenDatabase, message: ParsedMessage) -> Result {
     if message.args.is_empty() {
         return Err(Error::not_enough_args());
     }
@@ -11,8 +12,11 @@ pub fn id(db: &impl Database, message: ParsedMessage) -> Result {
         .parse::<usize>()
         .map_err(|e| Error::arg_num_parse_fail(0, e))?;
 
-    match db.meigens().iter().find(|x| x.id() == id) {
-        Some(meigen) => Ok(meigen.format()),
-        None => Err(Error::meigen_nf(id)),
-    }
+    let found_meigen = db
+        .meigens()
+        .iter()
+        .find(|x| x.id == id)
+        .ok_or(Error::meigen_nf(id))?;
+
+    Ok(format(found_meigen))
 }

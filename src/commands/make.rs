@@ -1,11 +1,12 @@
+use crate::commands::format;
 use crate::commands::{Error, Result};
-use crate::db::Database;
+use crate::db::MeigenDatabase;
 use crate::db::MeigenEntry;
 use crate::message_parser::ParsedMessage;
 
 use log::error;
 
-pub fn make(db: &mut impl Database, message: ParsedMessage) -> Result {
+pub fn make(db: &mut impl MeigenDatabase, message: ParsedMessage) -> Result {
     if message.args.len() <= 1 {
         return Err(Error::not_enough_args());
     }
@@ -39,19 +40,19 @@ pub fn make(db: &mut impl Database, message: ParsedMessage) -> Result {
 
     let mut message = String::new();
     message += &checked_result.format();
-    message += &registered_meigen.format();
+    message += &format(&registered_meigen);
 
     Ok(message)
 }
 
-pub struct CheckResult {
+struct CheckResult {
     replaced_back_quote: bool,
     reduced_code_block: bool,
 }
 
 // 名言に含まれている余分なものを取り除き、
 // 取り除いた結果のStringと、何を取り除いたかを表すCheckResultを返す
-pub fn strip_meigen(input: &str) -> (String, CheckResult) {
+fn strip_meigen(input: &str) -> (String, CheckResult) {
     const CODE_BLOCK: &str = "```";
 
     let mut result = input.to_string();
@@ -86,11 +87,11 @@ impl CheckResult {
         let mut message = String::new();
 
         if self.reduced_code_block {
-            message.push_str("- コードブロックを取り除きました\n");
+            message += "- コードブロックを取り除きました\n";
         }
 
         if self.replaced_back_quote {
-            message.push_str("- \\`を'に置換しました\n");
+            message += "- \\`を'に置換しました\n";
         }
 
         message

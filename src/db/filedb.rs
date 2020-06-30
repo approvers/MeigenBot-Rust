@@ -1,4 +1,4 @@
-use crate::db::{Database, MeigenEntry, RegisteredMeigen};
+use crate::db::{MeigenDatabase, MeigenEntry, RegisteredMeigen};
 use crate::make_error_enum;
 use serde::{Deserialize, Serialize};
 use std::fs::{self, File};
@@ -63,7 +63,7 @@ impl FileDB {
     }
 }
 
-impl Database for FileDB {
+impl MeigenDatabase for FileDB {
     type Error = FileDBError;
 
     fn save_meigen(&mut self, entry: MeigenEntry) -> Result<&RegisteredMeigen, Self::Error> {
@@ -89,7 +89,7 @@ impl Database for FileDB {
         let index = self
             .meigens
             .iter()
-            .position(|x| x.id() == id)
+            .position(|x| x.id == id)
             .ok_or_else(|| FileDBError::nf(id))?;
 
         self.meigens.remove(index);
