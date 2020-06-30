@@ -5,6 +5,7 @@ const FULL_WIDTH_SPACE: char = '　';
 
 const BASE_COMMAND: &str = "g!meigen";
 
+#[readonly::make]
 pub struct ParsedMessage {
     pub sub_command: Option<String>,
     pub raw_content: String,

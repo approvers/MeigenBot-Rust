@@ -10,9 +10,9 @@ pub struct FileDB {
     #[serde(skip)]
     path: String,
 
-    pub current_id: usize,
-    pub meigens: Vec<RegisteredMeigen>,
-    pub blacklist: Vec<String>,
+    current_id: usize,
+    meigens: Vec<RegisteredMeigen>,
+    blacklist: Vec<String>,
 }
 
 make_error_enum! {

@@ -24,6 +24,5 @@ pub fn list(db: &impl MeigenDatabase, message: ParsedMessage) -> Result {
 
     let meigens = db.meigens().iter().collect::<Vec<&RegisteredMeigen>>();
 
-    let result = listify(meigens.as_slice(), show_count, page)?;
-    Ok(result)
+    Ok(listify(meigens.as_slice(), show_count, page)?)
 }

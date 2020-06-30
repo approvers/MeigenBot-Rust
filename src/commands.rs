@@ -101,22 +101,15 @@ fn listify(slice: &[&RegisteredMeigen], show_count: i32, page: i32) -> Result {
                     .map_err(Error::num_parse_fail)?
             };
 
-            from..to
+            &slice[from..to]
         } else {
-            0..(meigens_end_index as usize)
+            &slice[0..(slice.len())]
         }
     };
 
     let mut result = String::new();
 
-    for index in range {
-        let meigen = {
-            match slice.get(index) {
-                Some(m) => m,
-                None => break,
-            }
-        };
-
+    for meigen in range {
         let formatted = meigen_tidy_format(meigen, MAX_LENGTH_PER_MEIGEN);
         result += &format!("\n{}", &formatted);
     }

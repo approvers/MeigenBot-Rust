@@ -1,4 +1,4 @@
-use crate::commands::format;
+use crate::commands::meigen_format;
 use crate::commands::{Error, Result};
 use crate::db::MeigenDatabase;
 use crate::db::MeigenEntry;
@@ -40,7 +40,7 @@ pub fn make(db: &mut impl MeigenDatabase, message: ParsedMessage) -> Result {
 
     let mut message = String::new();
     message += &checked_result.format();
-    message += &format(&registered_meigen);
+    message += &meigen_format(&registered_meigen);
 
     Ok(message)
 }
@@ -83,7 +83,7 @@ fn strip_meigen(input: &str) -> (String, CheckResult) {
 }
 
 impl CheckResult {
-    pub fn format(&self) -> String {
+    fn format(&self) -> String {
         let mut message = String::new();
 
         if self.reduced_code_block {

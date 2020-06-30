@@ -1,4 +1,4 @@
-use crate::commands::format;
+use crate::commands::meigen_format;
 use crate::commands::{Error, Result};
 use crate::db::MeigenDatabase;
 use crate::message_parser::ParsedMessage;
@@ -18,5 +18,5 @@ pub fn id(db: &impl MeigenDatabase, message: ParsedMessage) -> Result {
         .find(|x| x.id == id)
         .ok_or(Error::meigen_nf(id))?;
 
-    Ok(format(found_meigen))
+    Ok(meigen_format(found_meigen))
 }

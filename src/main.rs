@@ -15,6 +15,7 @@ use std::thread;
 mod command_registry;
 mod commands;
 mod db;
+mod make_error_enum;
 mod message_parser;
 
 use db::filedb::FileDB;
