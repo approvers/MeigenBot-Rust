@@ -5,8 +5,8 @@ const HELP_TEXT: &str = "```asciidoc
 g!meigen search [検索内容] [表示数=5] [ページ=1]
 
 = 検索内容 =
-author :: 名言を発した人の名前から検索します
-search :: 名言の内容から検索します
+author  :: 名言を発した人の名前から検索します
+content :: 名言の内容から検索します
 
 全ての検索コマンドが部分一致検索です。
 ```";

@@ -1,9 +1,9 @@
 mod author;
+mod content;
 mod help;
-mod word;
 
 pub use author::author;
-pub use word::content;
+pub use content::content;
 pub use help::help;
 
 use crate::commands::{Error, Result};
@@ -11,14 +11,14 @@ use crate::db::MeigenDatabase;
 use crate::message_parser::ParsedMessage;
 
 const AUTHOR_SEARCH_COMMAND: &str = "author";
-const WORD_SEARCH_COMMAND: &str = "word";
+const WORD_SEARCH_COMMAND: &str = "content";
 const SEARCH_HELP_COMMAND: &str = "help";
 
 pub fn search(db: &impl MeigenDatabase, message: ParsedMessage) -> Result {
     const LIST_MEIGEN_DEFAULT_COUNT: i32 = 5;
     const LIST_MEIGEN_DEFAULT_PAGE: i32 = 1;
 
-    if message.args.is_empty() {
+    if message.args.len() <= 1 {
         return help();
     }
 
@@ -41,7 +41,6 @@ pub fn search(db: &impl MeigenDatabase, message: ParsedMessage) -> Result {
         AUTHOR_SEARCH_COMMAND => author(db, search_query, show_count, page),
         WORD_SEARCH_COMMAND => content(db, search_query, show_count, page),
         SEARCH_HELP_COMMAND => help(),
-        _ => Err(Error::invalid_search_subcommand())
+        _ => Err(Error::invalid_search_subcommand()),
     }
-
 }
