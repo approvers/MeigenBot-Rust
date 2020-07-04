@@ -19,7 +19,7 @@ pub fn search(db: &impl MeigenDatabase, message: ParsedMessage) -> Result {
     const LIST_MEIGEN_DEFAULT_PAGE: i32 = 1;
 
     if message.args.is_empty() {
-        return commands::help();
+        return help();
     }
 
     let sub_command = &message.args[0];
