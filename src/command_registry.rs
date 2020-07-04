@@ -6,7 +6,7 @@ const MAKE_COMMAND: &str = "make";
 const LIST_COMMAND: &str = "list";
 const FROM_ID_COMMAND: &str = "id";
 const RANDOM_COMMAND: &str = "random";
-const BY_AUTHOR_COMMAND: &str = "author";
+const SEARCH_COMMAND: &str = "search";
 const STAT_COMMAND: &str = "status";
 const HELP_COMMAND: &str = "help";
 const DELETE_COMMAND: &str = "delete";
@@ -33,7 +33,7 @@ pub fn call_command(
         LIST_COMMAND => commands::list(db, message),
         FROM_ID_COMMAND => commands::id(db, message),
         RANDOM_COMMAND => commands::random(db, message),
-        BY_AUTHOR_COMMAND => commands::author(db, message),
+        SEARCH_COMMAND => commands::search(db, message),
         STAT_COMMAND => commands::status(db),
         HELP_COMMAND => commands::help(),
         _ => commands::help(),

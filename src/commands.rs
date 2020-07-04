@@ -1,19 +1,19 @@
-mod author;
 mod delete;
 mod help;
 mod id;
 mod list;
 mod make;
 mod random;
+mod search;
 mod status;
 
-pub use author::author;
 pub use delete::delete;
 pub use help::help;
 pub use id::id;
 pub use list::list;
 pub use make::make;
 pub use random::random;
+pub use search::search;
 pub use status::status;
 
 pub type Result = std::result::Result<String, Error>;
@@ -31,6 +31,8 @@ crate::make_error_enum! {
 
     ArgumentNumberParseFailed arg_num_parse_fail(th, e) => "{}番目の引数が正しい数値じゃないよ: {}",
     NumberParseFailed num_parse_fail(e) => "引数に正しくない数字が含まれているよ: {}",
+
+    InvalidSearchSubCommand invalid_search_subcommand() => "検索コマンドが正しくないよ"
 }
 
 // util
