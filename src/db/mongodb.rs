@@ -118,7 +118,7 @@ impl MeigenDatabase for MongoDB {
             .list
             .iter()
             .position(|x| x.id == id)
-            .ok_or(MongoDBError::delete_fail("such id not found"))?;
+            .ok_or_else(|| MongoDBError::delete_fail("such id not found"))?;
 
         self.list.remove(list_pos);
 
