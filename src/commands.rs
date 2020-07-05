@@ -39,7 +39,7 @@ crate::make_error_enum! {
 
 use crate::db::RegisteredMeigen;
 
-fn internal_format(id: usize, author: &str, content: &str) -> String {
+fn internal_format(id: u32, author: &str, content: &str) -> String {
     format!(
         "Meigen No.{}\n```\n{}\n    --- {}\n```",
         id, content, author

@@ -6,7 +6,7 @@ use crate::message_parser::ParsedMessage;
 
 use log::error;
 
-pub fn make(db: &mut impl MeigenDatabase, message: ParsedMessage) -> Result {
+pub async fn make(db: &mut impl MeigenDatabase, message: ParsedMessage) -> Result {
     if message.args.len() <= 1 {
         return Err(Error::not_enough_args());
     }
@@ -33,7 +33,7 @@ pub fn make(db: &mut impl MeigenDatabase, message: ParsedMessage) -> Result {
         }
     })?;
 
-    let registered_meigen = db.save_meigen(new_meigen_entry).map_err(|err| {
+    let registered_meigen = db.save_meigen(new_meigen_entry).await.map_err(|err| {
         error!("ファイル保存に失敗: {}", err);
         Error::save_failed(err)
     })?;

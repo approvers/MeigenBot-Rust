@@ -1,16 +1,19 @@
 use crate::db::{MeigenDatabase, MeigenEntry, RegisteredMeigen};
 use crate::make_error_enum;
 use serde::{Deserialize, Serialize};
-use std::fs::{self, File};
-use std::io::{BufWriter, Write};
 use std::path::Path;
+
+use tokio::fs::{self, File};
+use tokio::prelude::*;
+
+use async_trait::async_trait;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct FileDB {
     #[serde(skip)]
     path: String,
 
-    current_id: usize,
+    current_id: u32,
     meigens: Vec<RegisteredMeigen>,
     blacklist: Vec<String>,
 }
@@ -30,15 +33,6 @@ make_error_enum! {
 }
 
 impl FileDB {
-    pub fn load(path: &str) -> Result<Self, FileDBError> {
-        let file = File::open(path).map_err(FileDBError::open)?;
-
-        let mut result: Self = serde_yaml::from_reader(&file).map_err(FileDBError::deserialize)?;
-        result.path = path.into();
-
-        Ok(result)
-    }
-
     pub fn new(path: &str) -> Self {
         Self {
             path: path.to_string(),
@@ -48,25 +42,43 @@ impl FileDB {
         }
     }
 
-    pub fn save(&self) -> Result<(), FileDBError> {
+    pub async fn load(path: &str) -> Result<Self, FileDBError> {
+        let mut file = File::open(path).await.map_err(FileDBError::open)?;
+
+        let mut content = String::new();
+        file.read_to_string(&mut content)
+            .await
+            .map_err(FileDBError::open)?;
+
+        let mut deserialized: FileDB =
+            serde_yaml::from_str(&content).map_err(FileDBError::deserialize)?;
+        deserialized.path = path.into();
+
+        Ok(deserialized)
+    }
+
+    pub async fn save(&self) -> Result<(), FileDBError> {
         let serialized = serde_yaml::to_string(self).map_err(FileDBError::serialize)?;
 
         let path = Path::new(&self.path);
         if path.exists() {
-            fs::remove_file(path).map_err(FileDBError::delete)?;
+            fs::remove_file(path).await.map_err(FileDBError::delete)?;
         }
 
-        let file = File::create(path).map_err(FileDBError::create)?;
-
-        let mut writer = BufWriter::new(file);
-        write!(writer, "{}", serialized).map_err(FileDBError::save)
+        File::create(path)
+            .await
+            .map_err(FileDBError::create)?
+            .write_all(serialized.as_bytes())
+            .await
+            .map_err(FileDBError::save)
     }
 }
 
+#[async_trait]
 impl MeigenDatabase for FileDB {
     type Error = FileDBError;
 
-    fn save_meigen(&mut self, entry: MeigenEntry) -> Result<&RegisteredMeigen, Self::Error> {
+    async fn save_meigen(&mut self, entry: MeigenEntry) -> Result<&RegisteredMeigen, Self::Error> {
         self.current_id += 1;
 
         let register_entry = RegisteredMeigen {
@@ -76,16 +88,16 @@ impl MeigenDatabase for FileDB {
         };
 
         self.meigens.push(register_entry);
-        self.save()?;
+        self.save().await?;
 
         Ok(self.meigens.iter().last().unwrap())
     }
 
-    fn meigens(&self) -> &[RegisteredMeigen] {
+    async fn meigens(&self) -> &[RegisteredMeigen] {
         self.meigens.as_slice()
     }
 
-    fn delete_meigen(&mut self, id: usize) -> Result<(), Self::Error> {
+    async fn delete_meigen(&mut self, id: u32) -> Result<(), Self::Error> {
         let index = self
             .meigens
             .iter()
@@ -93,6 +105,6 @@ impl MeigenDatabase for FileDB {
             .ok_or_else(|| FileDBError::nf(id))?;
 
         self.meigens.remove(index);
-        self.save()
+        self.save().await
     }
 }

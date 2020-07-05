@@ -1,10 +1,9 @@
-
 use crate::commands::{Error, Result};
 use crate::db::MeigenDatabase;
 use crate::db::RegisteredMeigen;
 use crate::message_parser::ParsedMessage;
 
-pub fn random(db: &impl MeigenDatabase, message: ParsedMessage) -> Result {
+pub async fn random(db: &impl MeigenDatabase, message: ParsedMessage) -> Result {
     let count: usize = {
         message
             .args
@@ -13,21 +12,21 @@ pub fn random(db: &impl MeigenDatabase, message: ParsedMessage) -> Result {
             .map_err(|e| Error::arg_num_parse_fail(1, e))?
     };
 
-    let meigen_count = db.meigens().len();
+    let meigen_count = db.meigens().await.len();
     let _result = String::new();
 
     let rands = gen_rand_vec(count, 0, meigen_count);
+    let meigens = db.meigens().await;
+    let mut random_meigens = vec![];
 
-    let meigens = rands
-        .iter()
-        .map(|x| {
-            db.meigens()
-                .get(*x)
-                .expect("BUG: range of random values isn't fit to array's range.")
-        })
-        .collect::<Vec<_>>();
+    for rand_num in rands {
+        let meigen = meigens
+            .get(rand_num)
+            .expect("BUG: range of random values isn't fit to array's range.");
+        random_meigens.push(meigen);
+    }
 
-    local_listify(&meigens.as_slice())
+    local_listify(&random_meigens.as_slice())
 }
 
 fn gen_rand_vec(count: usize, range_from: usize, range_to: usize) -> Vec<usize> {

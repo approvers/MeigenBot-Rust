@@ -1,5 +1,9 @@
+use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
+
+
 pub mod filedb;
+pub mod mongodb;
 
 /// エラーを表すためのenum作成マクロ。
 /// Trailing comma 対応
@@ -13,23 +17,24 @@ pub mod filedb;
 /// }
 /// ```
 
-pub trait MeigenDatabase {
+#[async_trait]
+pub trait MeigenDatabase: Send + Sync {
     type Error: std::fmt::Display;
 
     // 名言を保存する。
-    fn save_meigen(&mut self, _: MeigenEntry) -> Result<&RegisteredMeigen, Self::Error>;
-
-    // 名言スライスを返す。
-    fn meigens(&self) -> &[RegisteredMeigen];
+    async fn save_meigen(&mut self, _: MeigenEntry) -> Result<&RegisteredMeigen, Self::Error>;
 
     // 名言を削除する。
-    fn delete_meigen(&mut self, id: usize) -> Result<(), Self::Error>;
+    async fn delete_meigen(&mut self, id: u32) -> Result<(), Self::Error>;
+
+    // 名言スライスを返す。
+    async fn meigens(&self) -> &[RegisteredMeigen];
 }
 
 #[readonly::make]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RegisteredMeigen {
-    pub id: usize,
+    pub id: u32,
     pub author: String,
     pub content: String,
 }
@@ -41,7 +46,7 @@ pub struct MeigenEntry {
 }
 
 impl RegisteredMeigen {
-    fn from_entry(entry: MeigenEntry, id: usize) -> Self {
+    fn from_entry(entry: MeigenEntry, id: u32) -> Self {
         Self {
             id,
             author: entry.author,
