@@ -1,0 +1,14 @@
+FROM rust as build
+RUN mkdir /src
+ADD Cargo.toml \
+    Cargo.lock \
+    /src/
+ADD src/ /src/src/
+WORKDIR /src
+RUN cargo build --release
+
+
+FROM debian
+WORKDIR /root
+RUN mkdir -p /usr/local/bin
+COPY --from=build /src/target/release/meigenbot-rust /usr/local/bin/meigenbot-rust

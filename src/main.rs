@@ -13,6 +13,7 @@ use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
 
+mod cli;
 mod command_registry;
 mod commands;
 mod db;
@@ -20,6 +21,8 @@ mod make_error_enum;
 mod message_parser;
 
 use db::filedb::FileDB;
+use db::mongodb::MongoDB;
+use db::MeigenDatabase;
 
 const CONF_FILE_NAME: &str = "./conf.yaml";
 const NEW_CONF_FILE_NAME: &str = "./conf.new.yaml";
@@ -39,21 +42,25 @@ struct BotEvHandler {
 
 #[async_trait]
 impl EventHandler for BotEvHandler {
-    async fn ready(&self, ctx: Context, _data_about_bot: Ready) {
-        let event = ClientEvent::OnReady(ctx);
-
-        self.channel.lock().unwrap().send(event).unwrap();
-    }
-
     async fn message(&self, _: Context, new_message: Message) {
         let event = ClientEvent::OnMessage(Box::new(new_message));
 
         self.channel.lock().unwrap().send(event).unwrap();
     }
+
+    async fn ready(&self, ctx: Context, _data_about_bot: Ready) {
+        let event = ClientEvent::OnReady(ctx);
+
+        self.channel.lock().unwrap().send(event).unwrap();
+    }
 }
 
-// #[tokio::main]を使わないのは、なんかこうruntimeを自分で作りたいからです。
 async fn async_main() {
+    let options = match cli::parse() {
+        Some(t) => t,
+        None => return,
+    };
+
     let log_level = {
         if cfg!(debug) {
             4 //trace
@@ -69,17 +76,27 @@ async fn async_main() {
         .init()
         .unwrap();
 
-    if env::args().any(|x| x == "--newconf") {
-        FileDB::new(NEW_CONF_FILE_NAME).save().await.unwrap();
-        return;
-    }
-
     let token = env::var("DISCORD_TOKEN").expect("Set DISCORD_TOKEN");
 
-    let mut db = FileDB::load(CONF_FILE_NAME)
-        .await
-        .expect("Open database file failed");
+    use cli::Database;
+    match options.database {
+        Database::File => {
+            let db = FileDB::load(&options.dest)
+                .await
+                .expect("Open database file failed");
+            main_routine(token, db).await
+        }
 
+        Database::Mongo => {
+            let db = MongoDB::new(&options.dest)
+                .await
+                .expect("Connect to mongo db failed");
+            main_routine(token, db).await
+        }
+    };
+}
+
+async fn main_routine(token: String, mut db: impl MeigenDatabase) {
     let (tx, rx) = mpsc::channel();
     let handler = BotEvHandler {
         channel: Mutex::new(tx),

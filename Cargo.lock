@@ -215,17 +215,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "command_attr"
-version = "0.2.0"
-source = "git+https://github.com/Lakelezz/serenity.git?branch=await#a2e8cdedd0a42e31f83c668a80aa3a39ae0a37f3"
-dependencies = [
- "futures",
- "proc-macro2 1.0.18",
- "quote 1.0.7",
- "syn 1.0.30",
-]
-
-[[package]]
 name = "crc32fast"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -780,7 +769,6 @@ dependencies = [
  "rand",
  "readonly",
  "serde",
- "serde_derive",
  "serde_yaml",
  "serenity",
  "stderrlog",
@@ -1430,27 +1418,24 @@ dependencies = [
 [[package]]
 name = "serenity"
 version = "0.8.6"
-source = "git+https://github.com/Lakelezz/serenity.git?branch=await#a2e8cdedd0a42e31f83c668a80aa3a39ae0a37f3"
+source = "git+https://github.com/acdenisSK/serenity?branch=await_next#9f555ec90649e7a0b19174f41a9b7d742a3d287f"
 dependencies = [
  "async-tls",
  "async-trait",
  "async-tungstenite",
- "base64 0.11.0",
+ "base64 0.12.1",
  "bitflags",
  "bytes",
  "chrono",
- "command_attr",
  "flate2",
  "futures",
  "log",
  "reqwest",
- "rustls 0.16.0",
+ "rustls 0.17.0",
  "serde",
  "serde_json",
- "static_assertions",
  "tokio",
  "url",
- "uwl",
  "webpki",
  "webpki-roots 0.19.0",
 ]
@@ -1518,12 +1503,6 @@ name = "spin"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6e63cff320ae2c57904679ba7cb63280a3dc4613885beafb148ee7bf9aa9042d"
-
-[[package]]
-name = "static_assertions"
-version = "1.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
 name = "stderrlog"
@@ -1906,12 +1885,6 @@ checksum = "9fde2f6a4bea1d6e007c4ad38c6839fa71cbb63b6dbf5b595aa38dc9b1093c11"
 dependencies = [
  "rand",
 ]
-
-[[package]]
-name = "uwl"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f4bf03e0ca70d626ecc4ba6b0763b934b6f2976e8c744088bb3c1d646fbb1ad0"
 
 [[package]]
 name = "version_check"

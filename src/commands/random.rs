@@ -12,11 +12,9 @@ pub async fn random(db: &impl MeigenDatabase, message: ParsedMessage) -> Result 
             .map_err(|e| Error::arg_num_parse_fail(1, e))?
     };
 
-    let meigen_count = db.meigens().await.len();
-    let _result = String::new();
-
+    let meigens = db.meigens().await.map_err(Error::load_failed)?;
+    let meigen_count = meigens.len();
     let rands = gen_rand_vec(count, 0, meigen_count);
-    let meigens = db.meigens().await;
     let mut random_meigens = vec![];
 
     for rand_num in rands {

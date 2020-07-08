@@ -1,6 +1,7 @@
 use crate::commands;
 use crate::db::MeigenDatabase;
 use crate::message_parser;
+use crate::commands::Error;
 
 const MAKE_COMMAND: &str = "make";
 const LIST_COMMAND: &str = "list";
@@ -24,7 +25,11 @@ pub async fn call_command(
         }
     };
 
-    if is_admin && sub_command == DELETE_COMMAND {
+    if sub_command == DELETE_COMMAND {
+        if !is_admin {
+            return Err(Error::admin_only());
+        }
+
         return commands::delete(db, message).await;
     }
 

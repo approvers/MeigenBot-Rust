@@ -1,7 +1,6 @@
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
-
 pub mod filedb;
 pub mod mongodb;
 
@@ -22,17 +21,17 @@ pub trait MeigenDatabase: Send + Sync {
     type Error: std::fmt::Display;
 
     // 名言を保存する。
-    async fn save_meigen(&mut self, _: MeigenEntry) -> Result<&RegisteredMeigen, Self::Error>;
+    async fn save_meigen(&mut self, _: MeigenEntry) -> Result<RegisteredMeigen, Self::Error>;
 
     // 名言を削除する。
     async fn delete_meigen(&mut self, id: u32) -> Result<(), Self::Error>;
 
     // 名言スライスを返す。
-    async fn meigens(&self) -> &[RegisteredMeigen];
+    async fn meigens(&self) -> Result<Vec<RegisteredMeigen>, Self::Error>;
 }
 
 #[readonly::make]
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RegisteredMeigen {
     pub id: u32,
     pub author: String,

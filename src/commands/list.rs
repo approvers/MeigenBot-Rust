@@ -1,7 +1,6 @@
 use crate::commands::listify;
 use crate::commands::{Error, Result};
 use crate::db::MeigenDatabase;
-use crate::db::RegisteredMeigen;
 use crate::message_parser::ParsedMessage;
 
 const LIST_MEIGEN_DEFAULT_COUNT: i32 = 5;
@@ -21,11 +20,8 @@ pub async fn list(db: &impl MeigenDatabase, message: ParsedMessage) -> Result {
         .map_or(Ok(LIST_MEIGEN_DEFAULT_PAGE), |x| x.parse())
         .map_err(|x| Error::arg_num_parse_fail(2, x))?;
 
-    let meigens = db
-        .meigens()
-        .await
-        .iter()
-        .collect::<Vec<&RegisteredMeigen>>();
+    let meigens = db.meigens().await.map_err(Error::load_failed)?;
+    let meigen_refs = meigens.iter().collect::<Vec<&_>>();
 
-    listify(meigens.as_slice(), show_count, page)
+    listify(meigen_refs.as_slice(), show_count, page)
 }

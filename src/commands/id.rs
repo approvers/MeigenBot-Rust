@@ -10,11 +10,11 @@ pub async fn id(db: &impl MeigenDatabase, message: ParsedMessage) -> Result {
 
     let id = message.args[0]
         .parse::<u32>()
-        .map_err(|e| Error::arg_num_parse_fail(0, e))?;
+        .map_err(|e| Error::arg_num_parse_fail(1, e))?;
 
-    let found_meigen = db
-        .meigens()
-        .await
+    let meigens = db.meigens().await.map_err(Error::load_failed)?;
+
+    let found_meigen = meigens
         .iter()
         .find(|x| x.id == id)
         .ok_or_else(|| Error::meigen_nf(id))?;

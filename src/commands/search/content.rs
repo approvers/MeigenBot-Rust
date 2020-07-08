@@ -1,7 +1,7 @@
 use crate::commands::listify;
+use crate::commands::Error;
 use crate::commands::Result;
 use crate::db::MeigenDatabase;
-use crate::db::RegisteredMeigen;
 
 pub async fn content(
     db: &impl MeigenDatabase,
@@ -9,12 +9,12 @@ pub async fn content(
     show_count: i32,
     page_num: i32,
 ) -> Result {
-    let filtered = db
-        .meigens()
-        .await
+    let meigens = db.meigens().await.map_err(Error::load_failed)?;
+
+    let filtered = meigens
         .iter()
         .filter(|x| x.content.contains(target_content))
-        .collect::<Vec<&RegisteredMeigen>>();
+        .collect::<Vec<&_>>();
 
     listify(filtered.as_slice(), show_count, page_num)
 }

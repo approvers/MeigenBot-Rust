@@ -78,7 +78,7 @@ impl FileDB {
 impl MeigenDatabase for FileDB {
     type Error = FileDBError;
 
-    async fn save_meigen(&mut self, entry: MeigenEntry) -> Result<&RegisteredMeigen, Self::Error> {
+    async fn save_meigen(&mut self, entry: MeigenEntry) -> Result<RegisteredMeigen, Self::Error> {
         self.current_id += 1;
 
         let register_entry = RegisteredMeigen {
@@ -87,14 +87,14 @@ impl MeigenDatabase for FileDB {
             content: entry.content,
         };
 
-        self.meigens.push(register_entry);
+        self.meigens.push(register_entry.clone());
         self.save().await?;
 
-        Ok(self.meigens.iter().last().unwrap())
+        Ok(register_entry)
     }
 
-    async fn meigens(&self) -> &[RegisteredMeigen] {
-        self.meigens.as_slice()
+    async fn meigens(&self) -> Result<Vec<RegisteredMeigen>, Self::Error> {
+        Ok(self.meigens.clone())
     }
 
     async fn delete_meigen(&mut self, id: u32) -> Result<(), Self::Error> {

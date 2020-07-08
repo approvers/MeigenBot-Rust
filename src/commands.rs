@@ -28,11 +28,14 @@ crate::make_error_enum! {
     NoMeigenMatches no_meigen_matches() => "一致する名言がなかったよ。。。",
     TooManyMatches too_many_meigen_matches() => "結果が長すぎて表示できないよ。もっと値を小さくしてね。",
     SaveFailed save_failed(e) => "名言保存に失敗しました: {}",
+    LoadFailed load_failed(e) => "名言の取得に失敗しました: {}",
 
     ArgumentNumberParseFailed arg_num_parse_fail(th, e) => "{}番目の引数が正しい数値じゃないよ: {}",
     NumberParseFailed num_parse_fail(e) => "引数に正しくない数字が含まれているよ: {}",
 
-    InvalidSearchSubCommand invalid_search_subcommand() => "検索コマンドが正しくないよ"
+    InvalidSearchSubCommand invalid_search_subcommand() => "検索コマンドが正しくないよ",
+
+    AdministratorOnlyCommand admin_only() => "そのコマンドはかわえもんにしか使えないよ"
 }
 
 // util

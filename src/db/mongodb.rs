@@ -4,10 +4,12 @@ use crate::db::RegisteredMeigen;
 use async_trait::async_trait;
 use mongodb::bson::doc;
 use mongodb::bson::Bson;
-
 use mongodb::options::ClientOptions;
 use mongodb::Client;
 use mongodb::Collection;
+use serde::Deserialize;
+use serde::Serialize;
+use std::convert::TryInto;
 use tokio::stream::StreamExt;
 
 crate::make_error_enum! {
@@ -20,12 +22,38 @@ crate::make_error_enum! {
     InvalidEntryError invalid_entry(e) => "MongoDBの中に無効なエントリがあります: {}",
     SerializeFailed serialize(e) => "Serializeに失敗しました: {}",
     DeserializeFailed deserialize(e) => "Deserializeに失敗しました: {}",
+    NotFoundMeigen nf(id) => "ID{}を持つ名言はありません",
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct MongoMeigen {
+    id: i64,
+    author: String,
+    content: String,
+}
+
+impl From<RegisteredMeigen> for MongoMeigen {
+    fn from(data: RegisteredMeigen) -> MongoMeigen {
+        MongoMeigen {
+            id: data.id as i64, //safe: i64 range is in range of u32
+            author: data.author,
+            content: data.content,
+        }
+    }
+}
+
+impl Into<RegisteredMeigen> for MongoMeigen {
+    fn into(self) -> RegisteredMeigen {
+        RegisteredMeigen {
+            id: self.id as u32, //safe: i64 range is in range of u32
+            author: self.author,
+            content: self.content,
+        }
+    }
 }
 
 pub struct MongoDB {
     inner: Collection,
-    current_id: u32,
-    list: Vec<RegisteredMeigen>,
 }
 
 impl MongoDB {
@@ -42,20 +70,13 @@ impl MongoDB {
 
         let entries = database.collection("entries");
 
-        let mut result = MongoDB {
-            inner: entries,
-            current_id: 0,
-            list: vec![],
-        };
-
-        result.sync().await?;
+        let result = MongoDB { inner: entries };
 
         Ok(result)
     }
 
-    // db -> Self をする。 Self -> dbはしないので注意
-    pub async fn sync(&mut self) -> Result<(), MongoDBError> {
-        let mut meigens: Vec<RegisteredMeigen> = vec![];
+    pub async fn get_all_meigen(&self) -> Result<Vec<RegisteredMeigen>, MongoDBError> {
+        let mut meigens = vec![];
         let mut cursor = self
             .inner
             .find(None, None)
@@ -65,17 +86,12 @@ impl MongoDB {
         while let Some(doc) = cursor.next().await {
             let doc = doc.map_err(MongoDBError::get_fail)?;
             let bson = bson::Bson::Document(doc);
-            let meigen = bson::from_bson(bson).map_err(MongoDBError::deserialize)?;
+            let meigen = bson::from_bson::<MongoMeigen>(bson).map_err(MongoDBError::deserialize)?;
 
-            meigens.push(meigen);
+            meigens.push(meigen.into());
         }
 
-        self.current_id = meigens
-            .iter()
-            .fold(0, |a, b| if a < b.id { b.id } else { a });
-        self.list = meigens;
-
-        Ok(())
+        Ok(meigens)
     }
 }
 
@@ -84,12 +100,36 @@ impl MeigenDatabase for MongoDB {
     type Error = MongoDBError;
 
     // 名言を保存する。
-    async fn save_meigen(&mut self, entry: MeigenEntry) -> Result<&RegisteredMeigen, Self::Error> {
-        self.sync().await?;
-        self.current_id += 1;
+    async fn save_meigen(&mut self, entry: MeigenEntry) -> Result<RegisteredMeigen, Self::Error> {
+        let current_id = self
+            .inner
+            .aggregate(
+                vec![doc! {
+                    "$group": doc! {
+                        "_id": "",
+                        "current_id": doc! { "$max": "$id" }
+                    }
+                }],
+                None,
+            )
+            .await
+            .map_err(MongoDBError::get_fail)?
+            .next()
+            .await
+            .ok_or_else(|| MongoDBError::get_fail("returned none"))?
+            .map_err(MongoDBError::get_fail)?
+            .get("current_id")
+            .ok_or_else(|| MongoDBError::get_fail("not returned current_id"))?
+            .as_i64()
+            .ok_or_else(|| MongoDBError::get_fail("current_id wasn't Int64"))?
+            as u32; //safe: i64 range is in range of u32
 
-        let register_entry = RegisteredMeigen {
-            id: self.current_id,
+        let current_id: u32 = current_id
+            .try_into()
+            .map_err(|_| MongoDBError::get_fail("current_id wasn't in u32 range"))?;
+
+        let register_entry = MongoMeigen {
+            id: (current_id + 1) as i64, //safe: i64 range is in range of u32
             author: entry.author,
             content: entry.content,
         };
@@ -105,34 +145,30 @@ impl MeigenDatabase for MongoDB {
             .await
             .map_err(MongoDBError::set_fail)?;
 
-        self.list.push(register_entry);
-
-        Ok(self.list.iter().last().unwrap())
+        Ok(register_entry.into())
     }
 
     // 名言を削除する。
     async fn delete_meigen(&mut self, id: u32) -> Result<(), Self::Error> {
-        self.sync().await?;
-
-        let list_pos = self
-            .list
-            .iter()
-            .position(|x| x.id == id)
-            .ok_or_else(|| MongoDBError::delete_fail("such id not found"))?;
-
-        self.list.remove(list_pos);
-
-        let id_int64: i64 = id.into();
-        self.inner
-            .delete_one(doc! {"id": Bson::Int64(id_int64)}, None)
+        let result = self.inner
+            .delete_one(
+                doc! {
+                    "id": Bson::Int64(id as i64) //safe: i64 range is in range of u32
+                },
+                None,
+            )
             .await
             .map_err(MongoDBError::delete_fail)?;
+
+        if result.deleted_count == 0 {
+            return Err(MongoDBError::nf(id))
+        }
 
         Ok(())
     }
 
     // 名言スライスを返す。
-    async fn meigens(&self) -> &[RegisteredMeigen] {
-        self.list.as_slice()
+    async fn meigens(&self) -> Result<Vec<RegisteredMeigen>, Self::Error> {
+        self.get_all_meigen().await
     }
 }
