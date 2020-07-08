@@ -9,7 +9,6 @@ use mongodb::Client;
 use mongodb::Collection;
 use serde::Deserialize;
 use serde::Serialize;
-use std::convert::TryInto;
 use tokio::stream::StreamExt;
 
 crate::make_error_enum! {
@@ -123,10 +122,6 @@ impl MeigenDatabase for MongoDB {
             .as_i64()
             .ok_or_else(|| MongoDBError::get_fail("current_id wasn't Int64"))?
             as u32; //safe: i64 range is in range of u32
-
-        let current_id: u32 = current_id
-            .try_into()
-            .map_err(|_| MongoDBError::get_fail("current_id wasn't in u32 range"))?;
 
         let register_entry = MongoMeigen {
             id: (current_id + 1) as i64, //safe: i64 range is in range of u32
