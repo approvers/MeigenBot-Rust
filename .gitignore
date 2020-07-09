@@ -3,3 +3,4 @@ conf.*
 .idea/
 .vscode/
 docker/mongo_db
+.env

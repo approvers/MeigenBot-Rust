@@ -7,14 +7,13 @@ services:
     volumes:
       - ./mongo_db:/data/db
     ports:
-        - 27017:27017
+      - 27017:27017
 
   meigen-rust:
     build:
       context: ..
       dockerfile: docker/Dockerfile-Rust
     entrypoint: /usr/local/bin/meigenbot-rust mongo mongodb://mongo
-    environment:
-      - DISCORD_TOKEN=TOKEN
+    env_file: .env
     depends_on:
       - mongo
