@@ -11,9 +11,7 @@ use std::env;
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex, RwLock};
 
-
 use async_trait::async_trait;
-
 
 mod api;
 mod cli;
@@ -64,20 +62,7 @@ async fn async_main() {
         None => return,
     };
 
-    let log_level = {
-        if cfg!(debug) {
-            4 //trace
-        } else {
-            2 //info
-        }
-    };
-
-    stderrlog::new()
-        .module(module_path!())
-        .verbosity(log_level)
-        .timestamp(stderrlog::Timestamp::Second)
-        .init()
-        .unwrap();
+    simple_logger::init_with_level(log::Level::Info).unwrap();
 
     let token = env::var("DISCORD_TOKEN").expect("Set DISCORD_TOKEN");
 
