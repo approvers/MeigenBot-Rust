@@ -8,7 +8,7 @@ use tokio::prelude::*;
 
 use async_trait::async_trait;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FileDB {
     #[serde(skip)]
     path: String,

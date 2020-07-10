@@ -1,7 +1,9 @@
 use crate::commands;
+use crate::commands::Error;
 use crate::db::MeigenDatabase;
 use crate::message_parser;
-use crate::commands::Error;
+use std::sync::Arc;
+use std::sync::RwLock;
 
 const MAKE_COMMAND: &str = "make";
 const LIST_COMMAND: &str = "list";
@@ -14,7 +16,7 @@ const DELETE_COMMAND: &str = "delete";
 
 // ParsedMessageから、それぞれのコマンド処理を呼び出し、その結果を返す
 pub async fn call_command(
-    db: &mut impl MeigenDatabase,
+    db: &Arc<RwLock<impl MeigenDatabase>>,
     message: message_parser::ParsedMessage,
     is_admin: bool,
 ) -> commands::Result {

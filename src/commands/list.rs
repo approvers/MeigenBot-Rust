@@ -2,11 +2,13 @@ use crate::commands::listify;
 use crate::commands::{Error, Result};
 use crate::db::MeigenDatabase;
 use crate::message_parser::ParsedMessage;
+use std::sync::Arc;
+use std::sync::RwLock;
 
 const LIST_MEIGEN_DEFAULT_COUNT: i32 = 5;
 const LIST_MEIGEN_DEFAULT_PAGE: i32 = 1;
 
-pub async fn list(db: &impl MeigenDatabase, message: ParsedMessage) -> Result {
+pub async fn list(db: &Arc<RwLock<impl MeigenDatabase>>, message: ParsedMessage) -> Result {
     // 表示する数
     let show_count = message
         .args
@@ -20,7 +22,12 @@ pub async fn list(db: &impl MeigenDatabase, message: ParsedMessage) -> Result {
         .map_or(Ok(LIST_MEIGEN_DEFAULT_PAGE), |x| x.parse())
         .map_err(|x| Error::arg_num_parse_fail(2, x))?;
 
-    let meigens = db.meigens().await.map_err(Error::load_failed)?;
+    let meigens = db
+        .read()
+        .unwrap()
+        .meigens()
+        .await
+        .map_err(Error::load_failed)?;
     let meigen_refs = meigens.iter().collect::<Vec<&_>>();
 
     listify(meigen_refs.as_slice(), show_count, page)

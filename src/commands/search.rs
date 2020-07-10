@@ -9,12 +9,14 @@ pub use help::help;
 use crate::commands::{Error, Result};
 use crate::db::MeigenDatabase;
 use crate::message_parser::ParsedMessage;
+use std::sync::Arc;
+use std::sync::RwLock;
 
 const AUTHOR_SEARCH_COMMAND: &str = "author";
 const WORD_SEARCH_COMMAND: &str = "content";
 const SEARCH_HELP_COMMAND: &str = "help";
 
-pub async fn search(db: &impl MeigenDatabase, message: ParsedMessage) -> Result {
+pub async fn search(db: &Arc<RwLock<impl MeigenDatabase>>, message: ParsedMessage) -> Result {
     const LIST_MEIGEN_DEFAULT_COUNT: i32 = 5;
     const LIST_MEIGEN_DEFAULT_PAGE: i32 = 1;
 

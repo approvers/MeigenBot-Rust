@@ -51,6 +51,7 @@ impl Into<RegisteredMeigen> for MongoMeigen {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct MongoDB {
     inner: Collection,
 }
@@ -145,7 +146,8 @@ impl MeigenDatabase for MongoDB {
 
     // 名言を削除する。
     async fn delete_meigen(&mut self, id: u32) -> Result<(), Self::Error> {
-        let result = self.inner
+        let result = self
+            .inner
             .delete_one(
                 doc! {
                     "id": Bson::Int64(id as i64) //safe: i64 range is in range of u32
@@ -156,7 +158,7 @@ impl MeigenDatabase for MongoDB {
             .map_err(MongoDBError::delete_fail)?;
 
         if result.deleted_count == 0 {
-            return Err(MongoDBError::nf(id))
+            return Err(MongoDBError::nf(id));
         }
 
         Ok(())

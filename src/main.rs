@@ -9,10 +9,13 @@ use serenity::model::id::ChannelId;
 use serenity::prelude::{Context, EventHandler};
 use std::env;
 use std::sync::mpsc;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
+
 
 use async_trait::async_trait;
 
+
+mod api;
 mod cli;
 mod command_registry;
 mod commands;
@@ -96,7 +99,15 @@ async fn async_main() {
     };
 }
 
-async fn main_routine(token: String, mut db: impl MeigenDatabase) {
+async fn main_routine(token: String, db: impl MeigenDatabase) {
+    let db = Arc::new(RwLock::new(db));
+
+    {
+        let db = Arc::clone(&db);
+        //fixme: remove this
+        api::launch(db).await;
+    }
+
     let (tx, rx) = mpsc::channel();
     let handler = BotEvHandler {
         channel: Mutex::new(tx),
@@ -127,7 +138,7 @@ async fn main_routine(token: String, mut db: impl MeigenDatabase) {
 
                 if let Some(parsed_msg) = message_parser::parse_message(&msg) {
                     let send_msg = {
-                        match command_registry::call_command(&mut db, parsed_msg, is_admin).await {
+                        match command_registry::call_command(&db, parsed_msg, is_admin).await {
                             Ok(m) => m,
                             Err(e) => e.to_string(),
                         }
@@ -141,7 +152,13 @@ async fn main_routine(token: String, mut db: impl MeigenDatabase) {
 }
 
 fn main() {
-    let mut runtime = tokio::runtime::Runtime::new().expect("Initializing tokio failed");
+    let mut runtime = tokio::runtime::Builder::new()
+        .enable_time()
+        .enable_io()
+        .threaded_scheduler()
+        .build()
+        .expect("Failed to build tokio runtime.");
+
     runtime.block_on(async_main());
 }
 
