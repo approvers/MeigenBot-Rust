@@ -24,7 +24,6 @@ async-trait = "0.1.36"
 readonly = "0.1.6"
 
 warp = "0.2.3"
-lazy_static = "1.4.0"
 
 [dependencies.serenity]
 git = "https://github.com/acdenisSK/serenity"
