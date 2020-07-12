@@ -124,8 +124,11 @@ async fn main_routine(token: String, port: u16, db: impl MeigenDatabase) {
             ClientEvent::OnMessage(msg) => {
                 let ctx = context.as_ref().expect("event was called before ready");
 
-                const KAWAEMON_ID: u64 = 391857452360007680;
-                let is_admin = msg.author.id == KAWAEMON_ID;
+                const ADMIN_ID: &[u64] = &[
+                    391857452360007680, //kawaemon
+                ];
+
+                let is_admin = ADMIN_ID.contains(&msg.author.id.0);
 
                 if let Some(parsed_msg) = message_parser::parse_message(&msg) {
                     let send_msg = {
