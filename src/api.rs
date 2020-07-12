@@ -16,6 +16,7 @@ use warp::path;
 use warp::reply;
 use warp::reply::json;
 use warp::reply::Json;
+use warp::reply::WithStatus;
 use warp::Filter;
 use warp::Rejection;
 use warp::Reply;
@@ -60,42 +61,45 @@ mod inner {
             warp::serve(routes).run(self.address).await;
         }
 
-        fn handle_all(db: &Database<D>) -> Box<dyn Reply> {
-            with_report(|| {
-                let log_msg = Cow::from("GET /all");
+        fn handle_all(db: &Database<D>) -> WithStatus<Json> {
+            with_report(|| match block_on(Self::get_all_entries(&db)) {
+                Ok(a) => {
+                    let log_msg = Cow::from("GET /all");
+                    let json = json(&a);
+                    let reply = reply::with_status(json, StatusCode::OK);
 
-                match block_on(Self::get_all_entries(&db)) {
-                    Ok(a) => {
-                        let json = json(&a);
-                        (log_msg, Box::new(json) as Box<dyn Reply>)
-                    }
+                    (log_msg, reply)
+                }
 
-                    Err(e) => {
-                        let error = ErrorMessage {
-                            code: 500,
-                            message: Cow::from("Internal error"),
-                        };
+                Err(e) => {
+                    let log_msg = Cow::from(format!("GET /all Error: {}", e));
+                    let error = ErrorMessage {
+                        code: 500,
+                        message: Cow::from("Internal error"),
+                    };
 
-                        let json = json(&error);
-                        let reply = reply::with_status(json, StatusCode::INTERNAL_SERVER_ERROR);
-                        (log_msg, Box::new(reply) as Box<dyn Reply>)
-                    }
+                    let json = json(&error);
+                    let reply = reply::with_status(json, StatusCode::INTERNAL_SERVER_ERROR);
+                    (log_msg, reply)
                 }
             })
         }
 
-        fn handle_author(db: &Database<D>, filter: String) -> Box<dyn Reply> {
+        fn handle_author(db: &Database<D>, filter: String) -> WithStatus<Json> {
             with_report(|| {
-                let log_msg = Cow::from(format!("GET /author/{}", filter));
                 let filter = percent_decode(filter.as_bytes()).decode_utf8().unwrap();
 
                 match &block_on(Self::get_by_author(&db, filter.as_ref())) {
                     Ok(a) => {
+                        let log_msg = Cow::from(format!("GET /author/{}", filter));
                         let json = json(&a);
-                        (log_msg, Box::new(json) as Box<dyn Reply>)
+                        let reply = reply::with_status(json, StatusCode::OK);
+
+                        (log_msg, reply)
                     }
 
                     Err(e) => {
+                        let log_msg = Cow::from(format!("GET /author/{} Error: {}", filter, e));
                         let error = ErrorMessage {
                             code: 500,
                             message: Cow::from("Internal error"),
@@ -103,13 +107,14 @@ mod inner {
 
                         let json = json(&error);
                         let reply = reply::with_status(json, StatusCode::INTERNAL_SERVER_ERROR);
-                        (log_msg, Box::new(reply) as Box<dyn Reply>)
+
+                        (log_msg, reply)
                     }
                 }
             })
         }
 
-        async fn handle_rejection(err: Rejection) -> Result<impl Reply, Infallible> {
+        async fn handle_rejection(err: Rejection) -> Result<WithStatus<Json>, Infallible> {
             let (code, message) = {
                 if err.is_not_found() {
                     (StatusCode::NOT_FOUND, "Not found")
