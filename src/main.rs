@@ -1,6 +1,8 @@
 #![allow(dead_code)]
 #![deny(clippy::all)]
 
+use async_trait::async_trait;
+use log::info;
 use serenity::client::Client;
 use serenity::http::Http;
 use serenity::model::channel::Message;
@@ -10,8 +12,6 @@ use serenity::prelude::{Context, EventHandler};
 use std::env;
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex, RwLock};
-
-use async_trait::async_trait;
 
 mod api;
 mod cli;
@@ -24,13 +24,6 @@ mod message_parser;
 use db::filedb::FileDB;
 use db::mongodb::MongoDB;
 use db::MeigenDatabase;
-
-const CONF_FILE_NAME: &str = "./conf.yaml";
-const NEW_CONF_FILE_NAME: &str = "./conf.new.yaml";
-
-const KAWAEMON_ID: u64 = 391857452360007680;
-
-const MESSAGE_MAX_LENGTH: usize = 1000;
 
 enum ClientEvent {
     OnReady(Context),
@@ -56,15 +49,30 @@ impl EventHandler for BotEvHandler {
     }
 }
 
+fn main() {
+    simple_logger::init_with_level(log::Level::Info).unwrap();
+
+    let mut runtime = tokio::runtime::Builder::new()
+        .enable_time()
+        .enable_io()
+        .threaded_scheduler()
+        .build()
+        .expect("Failed to build tokio runtime.");
+
+    runtime.block_on(async_main());
+}
+
 async fn async_main() {
     let options = match cli::parse() {
         Some(t) => t,
         None => return,
     };
 
-    simple_logger::init_with_level(log::Level::Info).unwrap();
-
     let token = env::var("DISCORD_TOKEN").expect("Set DISCORD_TOKEN");
+    let port = env::var("PORT")
+        .expect("Set PORT for api server")
+        .parse()
+        .expect("PORT variable is not collect value. expected u16.");
 
     use cli::Database;
     match options.database {
@@ -72,26 +80,23 @@ async fn async_main() {
             let db = FileDB::load(&options.dest)
                 .await
                 .expect("Open database file failed");
-            main_routine(token, db).await
+            main_routine(token, port, db).await
         }
 
         Database::Mongo => {
             let db = MongoDB::new(&options.dest)
                 .await
                 .expect("Connect to mongo db failed");
-            main_routine(token, db).await
+            main_routine(token, port, db).await
         }
     };
 }
 
-async fn main_routine(token: String, db: impl MeigenDatabase) {
+async fn main_routine(token: String, port: u16, db: impl MeigenDatabase) {
     let db = Arc::new(RwLock::new(db));
 
-    {
-        let db = Arc::clone(&db);
-        //fixme: remove this
-        api::launch(db).await;
-    }
+    info!("Starting Api server at 127.0.0.1:{}", port);
+    tokio::spawn(api::launch(([127, 0, 0, 1], port), Arc::clone(&db)));
 
     let (tx, rx) = mpsc::channel();
     let handler = BotEvHandler {
@@ -112,13 +117,14 @@ async fn main_routine(token: String, db: impl MeigenDatabase) {
     for event in rx {
         match event {
             ClientEvent::OnReady(ctx) => {
-                println!("Bot is ready!");
+                println!("Discord Bot is ready!");
                 context = Some(ctx);
             }
 
             ClientEvent::OnMessage(msg) => {
                 let ctx = context.as_ref().expect("event was called before ready");
 
+                const KAWAEMON_ID: u64 = 391857452360007680;
                 let is_admin = msg.author.id == KAWAEMON_ID;
 
                 if let Some(parsed_msg) = message_parser::parse_message(&msg) {
@@ -134,17 +140,6 @@ async fn main_routine(token: String, db: impl MeigenDatabase) {
             }
         }
     }
-}
-
-fn main() {
-    let mut runtime = tokio::runtime::Builder::new()
-        .enable_time()
-        .enable_io()
-        .threaded_scheduler()
-        .build()
-        .expect("Failed to build tokio runtime.");
-
-    runtime.block_on(async_main());
 }
 
 async fn send_message(text: &impl std::fmt::Display, channel_id: ChannelId, http: &Arc<Http>) {
