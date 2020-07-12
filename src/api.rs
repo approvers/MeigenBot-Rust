@@ -6,6 +6,7 @@ use percent_encoding::percent_decode;
 use serde::Serialize;
 use std::borrow::Cow;
 use std::convert::Infallible;
+use std::fmt::Display;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::sync::RwLock;
@@ -23,6 +24,12 @@ mod inner {
     use super::*;
 
     type Database<D> = Arc<RwLock<D>>;
+
+    #[derive(Serialize)]
+    struct ErrorMessage {
+        code: u16,
+        message: Cow<'static, str>,
+    }
 
     #[derive(Clone)]
     pub struct ApiServer<D: MeigenDatabase> {
@@ -53,30 +60,56 @@ mod inner {
             warp::serve(routes).run(self.address).await;
         }
 
-        fn handle_all(db: &Database<D>) -> Json {
+        fn handle_all(db: &Database<D>) -> Box<dyn Reply> {
             with_report(|| {
-                let result = json(&block_on(Self::get_all_entries(&db)));
+                let log_msg = Cow::from("GET /all");
 
-                (Cow::from("GET /all"), result)
+                match block_on(Self::get_all_entries(&db)) {
+                    Ok(a) => {
+                        let json = json(&a);
+                        (log_msg, Box::new(json) as Box<dyn Reply>)
+                    }
+
+                    Err(e) => {
+                        let error = ErrorMessage {
+                            code: 500,
+                            message: Cow::from("Internal error"),
+                        };
+
+                        let json = json(&error);
+                        let reply = reply::with_status(json, StatusCode::INTERNAL_SERVER_ERROR);
+                        (log_msg, Box::new(reply) as Box<dyn Reply>)
+                    }
+                }
             })
         }
 
-        fn handle_author(db: &Database<D>, filter: String) -> Json {
+        fn handle_author(db: &Database<D>, filter: String) -> Box<dyn Reply> {
             with_report(|| {
+                let log_msg = Cow::from(format!("GET /author/{}", filter));
                 let filter = percent_decode(filter.as_bytes()).decode_utf8().unwrap();
-                let result = json(&block_on(Self::get_by_author(&db, filter.as_ref())));
 
-                (Cow::from(format!("GET /author/{}", filter)), result)
+                match &block_on(Self::get_by_author(&db, filter.as_ref())) {
+                    Ok(a) => {
+                        let json = json(&a);
+                        (log_msg, Box::new(json) as Box<dyn Reply>)
+                    }
+
+                    Err(e) => {
+                        let error = ErrorMessage {
+                            code: 500,
+                            message: Cow::from("Internal error"),
+                        };
+
+                        let json = json(&error);
+                        let reply = reply::with_status(json, StatusCode::INTERNAL_SERVER_ERROR);
+                        (log_msg, Box::new(reply) as Box<dyn Reply>)
+                    }
+                }
             })
         }
 
         async fn handle_rejection(err: Rejection) -> Result<impl Reply, Infallible> {
-            #[derive(Serialize)]
-            struct ErrorMessage {
-                code: u16,
-                message: &'static str,
-            }
-
             let (code, message) = {
                 if err.is_not_found() {
                     (StatusCode::NOT_FOUND, "Not found")
@@ -87,25 +120,30 @@ mod inner {
 
             let json = json(&ErrorMessage {
                 code: code.as_u16(),
-                message,
+                message: Cow::from(message),
             });
 
             Ok(reply::with_status(json, code))
         }
 
-        async fn get_all_entries(db: &Database<D>) -> Vec<RegisteredMeigen> {
-            db.read().unwrap().meigens().await.unwrap()
+        async fn get_all_entries(db: &Database<D>) -> Result<Vec<RegisteredMeigen>, D::Error> {
+            db.read().unwrap().meigens().await
         }
 
-        async fn get_by_author(db: &Database<D>, filter: &str) -> Vec<RegisteredMeigen> {
-            db.read()
+        async fn get_by_author(
+            db: &Database<D>,
+            filter: &str,
+        ) -> Result<Vec<RegisteredMeigen>, D::Error> {
+            let r = db
+                .read()
                 .unwrap()
                 .meigens()
-                .await
-                .unwrap()
+                .await?
                 .drain(..)
                 .filter(|x| x.author.contains(&filter))
-                .collect()
+                .collect();
+
+            Ok(r)
         }
     }
 

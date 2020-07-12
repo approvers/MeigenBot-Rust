@@ -35,3 +35,34 @@ macro_rules! make_error_enum {
         }
     };
 }
+
+// macro_rules! up {
+//     ( $current_version:ident, $yaml:ident, $is_upgraded:ident, $($version:expr => $upgrader_module:ident),+ $(,)? ) => {
+//         $(
+//             if $current_version < $version {
+//                 $is_upgraded = true;
+//                 $upgrader_module::up($yaml);
+//             }
+//         )+
+//     };
+// }
+
+// fn test() {
+//     let yaml = 11;
+//     let version = 11;
+//     let mut is_upgraded = false;
+
+//     up! {
+//         version, yaml, is_upgraded,
+//         0000 => version_0001_yaml,
+//         0001 => version_0002_yaml,
+//     }
+// }
+
+// mod version_0001_yaml {
+//     pub fn up(t: i32) {}
+// }
+
+// mod version_0002_yaml {
+//     pub fn up(t: i32) {}
+// }
