@@ -62,7 +62,7 @@ mod inner {
             with_report(|| {
                 let result = json(&block_on(Self::get_all_entries(&db)));
 
-                (format!("GET /all"), result)
+                ("GET /all".to_string(), result)
             })
         }
 
