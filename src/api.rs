@@ -6,7 +6,6 @@ use percent_encoding::percent_decode;
 use serde::Serialize;
 use std::borrow::Cow;
 use std::convert::Infallible;
-use std::fmt::Display;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::sync::RwLock;
@@ -19,7 +18,6 @@ use warp::reply::Json;
 use warp::reply::WithStatus;
 use warp::Filter;
 use warp::Rejection;
-use warp::Reply;
 
 mod inner {
     use super::*;
