@@ -25,6 +25,10 @@ use db::filedb::FileDB;
 use db::mongodb::MongoDB;
 use db::MeigenDatabase;
 
+const ADMIN_ID: &[u64] = &[
+    391857452360007680, //kawaemon
+];
+
 enum ClientEvent {
     OnReady(Context),
     OnMessage(Box<Message>),
@@ -123,10 +127,6 @@ async fn main_routine(token: String, port: u16, db: impl MeigenDatabase) {
 
             ClientEvent::OnMessage(msg) => {
                 let ctx = context.as_ref().expect("event was called before ready");
-
-                const ADMIN_ID: &[u64] = &[
-                    391857452360007680, //kawaemon
-                ];
 
                 let is_admin = ADMIN_ID.contains(&msg.author.id.0);
 
