@@ -3,14 +3,21 @@ use crate::db::RegisteredMeigen;
 use futures::executor::block_on;
 use log::info;
 use percent_encoding::percent_decode;
+use serde::Serialize;
+use std::borrow::Cow;
+use std::convert::Infallible;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::sync::RwLock;
 use std::time::Instant;
+use warp::http::StatusCode;
 use warp::path;
+use warp::reply;
 use warp::reply::json;
 use warp::reply::Json;
 use warp::Filter;
+use warp::Rejection;
+use warp::Reply;
 
 mod inner {
     use super::*;
@@ -39,8 +46,51 @@ mod inner {
                 path!("author" / String).map(move |f| Self::handle_author(&db, f))
             };
 
-            let routes = warp::get().and(all.or(by_author));
+            let routes = warp::get()
+                .and(all.or(by_author))
+                .recover(Self::handle_rejection);
+
             warp::serve(routes).run(self.address).await;
+        }
+
+        fn handle_all(db: &Database<D>) -> Json {
+            with_report(|| {
+                let result = json(&block_on(Self::get_all_entries(&db)));
+
+                (Cow::from("GET /all"), result)
+            })
+        }
+
+        fn handle_author(db: &Database<D>, filter: String) -> Json {
+            with_report(|| {
+                let filter = percent_decode(filter.as_bytes()).decode_utf8().unwrap();
+                let result = json(&block_on(Self::get_by_author(&db, filter.as_ref())));
+
+                (Cow::from(format!("GET /author/{}", filter)), result)
+            })
+        }
+
+        async fn handle_rejection(err: Rejection) -> Result<impl Reply, Infallible> {
+            #[derive(Serialize)]
+            struct ErrorMessage {
+                code: u16,
+                message: &'static str,
+            }
+
+            let (code, message) = {
+                if err.is_not_found() {
+                    (StatusCode::NOT_FOUND, "Not found")
+                } else {
+                    (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error")
+                }
+            };
+
+            let json = json(&ErrorMessage {
+                code: code.as_u16(),
+                message,
+            });
+
+            Ok(reply::with_status(json, code))
         }
 
         async fn get_all_entries(db: &Database<D>) -> Vec<RegisteredMeigen> {
@@ -57,29 +107,12 @@ mod inner {
                 .filter(|x| x.author.contains(&filter))
                 .collect()
         }
-
-        fn handle_all(db: &Database<D>) -> Json {
-            with_report(|| {
-                let result = json(&block_on(Self::get_all_entries(&db)));
-
-                ("GET /all".to_string(), result)
-            })
-        }
-
-        fn handle_author(db: &Database<D>, filter: String) -> Json {
-            with_report(|| {
-                let filter = percent_decode(filter.as_bytes()).decode_utf8().unwrap();
-                let result = json(&block_on(Self::get_by_author(&db, filter.as_ref())));
-
-                (format!("GET /author/{}", filter), result)
-            })
-        }
     }
 
     #[inline]
     fn with_report<F, R>(f: F) -> R
     where
-        F: FnOnce() -> (String, R),
+        F: FnOnce() -> (Cow<'static, str>, R),
     {
         let begin = Instant::now();
         let result = f();
