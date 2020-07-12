@@ -86,7 +86,7 @@ mod inner {
         let took_time = (Instant::now() - begin).as_millis();
 
         info!("{}: took {}ms", result.0, took_time);
-        return result.1;
+        result.1
     }
 }
 
