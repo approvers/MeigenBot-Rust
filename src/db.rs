@@ -4,21 +4,9 @@ use serde::{Deserialize, Serialize};
 pub mod filedb;
 pub mod mongodb;
 
-/// エラーを表すためのenum作成マクロ。
-/// Trailing comma 対応
-/// # 書式
-///
-/// ```
-/// make_error_enum! {
-///     enum_name;
-///     variant_name generator_func_name(format_args) => "format_template",
-///     // バリアント定義は何個でも書ける
-/// }
-/// ```
-
 #[async_trait]
-pub trait MeigenDatabase: Send + Sync {
-    type Error: std::fmt::Display;
+pub trait MeigenDatabase: Send + Sync + Clone + 'static {
+    type Error: std::fmt::Display + std::fmt::Debug;
 
     // 名言を保存する。
     async fn save_meigen(&mut self, _: MeigenEntry) -> Result<RegisteredMeigen, Self::Error>;

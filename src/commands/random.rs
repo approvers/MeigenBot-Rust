@@ -2,8 +2,10 @@ use crate::commands::{Error, Result};
 use crate::db::MeigenDatabase;
 use crate::db::RegisteredMeigen;
 use crate::message_parser::ParsedMessage;
+use std::sync::Arc;
+use std::sync::RwLock;
 
-pub async fn random(db: &impl MeigenDatabase, message: ParsedMessage) -> Result {
+pub async fn random(db: &Arc<RwLock<impl MeigenDatabase>>, message: ParsedMessage) -> Result {
     let count: usize = {
         message
             .args
@@ -12,7 +14,13 @@ pub async fn random(db: &impl MeigenDatabase, message: ParsedMessage) -> Result 
             .map_err(|e| Error::arg_num_parse_fail(1, e))?
     };
 
-    let meigens = db.meigens().await.map_err(Error::load_failed)?;
+    let meigens = db
+        .read()
+        .unwrap()
+        .meigens()
+        .await
+        .map_err(Error::load_failed)?;
+
     let meigen_count = meigens.len();
     let rands = gen_rand_vec(count, 0, meigen_count);
     let mut random_meigens = vec![];
