@@ -77,6 +77,11 @@ async fn async_main() {
         .expect("Set PORT for api server")
         .parse()
         .expect("PORT variable is not collect value. expected u16.");
+    let admin_id = env::var("ADMIN_DISCORD_ID")
+        .expect("Set admin discord id")
+        .parse()
+        .expect("Invalid admin discord id.");
+    let admin_ids = &[admin_id];
 
     use cli::Database;
     match options.database {
@@ -84,19 +89,19 @@ async fn async_main() {
             let db = FileDB::load(&options.dest)
                 .await
                 .expect("Open database file failed");
-            main_routine(token, port, db).await
+            main_routine(token, port, db, admin_ids).await
         }
 
         Database::Mongo => {
             let db = MongoDB::new(&options.dest)
                 .await
                 .expect("Connect to mongo db failed");
-            main_routine(token, port, db).await
+            main_routine(token, port, db, admin_ids).await
         }
     };
 }
 
-async fn main_routine(token: String, port: u16, db: impl MeigenDatabase) {
+async fn main_routine(token: String, port: u16, db: impl MeigenDatabase, admin_id: &[u64]) {
     let db = Arc::new(RwLock::new(db));
 
     info!("Starting Api server at 127.0.0.1:{}", port);
@@ -128,7 +133,7 @@ async fn main_routine(token: String, port: u16, db: impl MeigenDatabase) {
             ClientEvent::OnMessage(msg) => {
                 let ctx = context.as_ref().expect("event was called before ready");
 
-                let is_admin = ADMIN_ID.contains(&msg.author.id.0);
+                let is_admin = admin_id.iter().any(|x| *x == msg.author.id.0);
 
                 if let Some(parsed_msg) = message_parser::parse_message(&msg) {
                     let send_msg = {

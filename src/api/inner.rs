@@ -4,7 +4,6 @@ use log::info;
 use percent_encoding::percent_decode;
 use serde::Serialize;
 use std::convert::Infallible;
-use std::fmt::{self, Display, Formatter};
 use std::net::SocketAddr;
 use std::sync::{Arc, RwLock};
 use std::time::Instant;
@@ -56,7 +55,7 @@ impl<D: MeigenDatabase> ApiServer<D> {
                 let json = json(&a);
                 let reply = reply::with_status(json, StatusCode::OK);
 
-                (Text::from(log_msg), reply)
+                (String::from(log_msg), reply)
             }
 
             Err(e) => {
@@ -69,7 +68,7 @@ impl<D: MeigenDatabase> ApiServer<D> {
                 let json = json(&error);
                 let reply = reply::with_status(json, StatusCode::INTERNAL_SERVER_ERROR);
 
-                (Text::from(log_msg), reply)
+                (log_msg, reply)
             }
         })
     }
@@ -84,7 +83,7 @@ impl<D: MeigenDatabase> ApiServer<D> {
                     let json = json(&a);
                     let reply = reply::with_status(json, StatusCode::OK);
 
-                    (Text::from(log_msg), reply)
+                    (log_msg, reply)
                 }
 
                 Err(e) => {
@@ -97,7 +96,7 @@ impl<D: MeigenDatabase> ApiServer<D> {
                     let json = json(&error);
                     let reply = reply::with_status(json, StatusCode::INTERNAL_SERVER_ERROR);
 
-                    (Text::from(log_msg), reply)
+                    (log_msg, reply)
                 }
             }
         })
@@ -144,7 +143,7 @@ impl<D: MeigenDatabase> ApiServer<D> {
 #[inline]
 fn with_report<F, R>(f: F) -> R
 where
-    F: FnOnce() -> (Text, R),
+    F: FnOnce() -> (String, R),
 {
     let begin = Instant::now();
     let result = f();
@@ -152,30 +151,4 @@ where
 
     info!("{}: took {}ms", result.0, took_time);
     result.1
-}
-
-enum Text {
-    String(String),
-    Str(&'static str),
-}
-
-impl From<String> for Text {
-    fn from(s: String) -> Self {
-        Text::String(s)
-    }
-}
-
-impl From<&'static str> for Text {
-    fn from(s: &'static str) -> Self {
-        Text::Str(s)
-    }
-}
-
-impl Display for Text {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            Text::String(ref s) => write!(f, "{}", s),
-            Text::Str(s) => write!(f, "{}", s),
-        }
-    }
 }
