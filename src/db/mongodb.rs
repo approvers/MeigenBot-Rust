@@ -2,6 +2,7 @@ use crate::db::MeigenDatabase;
 use crate::db::MeigenEntry;
 use crate::db::RegisteredMeigen;
 use async_trait::async_trait;
+use log::info;
 use mongodb::bson::doc;
 use mongodb::bson::Bson;
 use mongodb::options::ClientOptions;
@@ -124,6 +125,8 @@ impl MeigenDatabase for MongoDB {
             .ok_or_else(|| MongoDBError::get_fail("current_id wasn't Int64"))?
             as u32; //safe: i64 range is in range of u32
 
+        info!("Aggregated max meigen id");
+
         let register_entry = MongoMeigen {
             id: (current_id + 1) as i64, //safe: i64 range is in range of u32
             author: entry.author,
@@ -140,6 +143,8 @@ impl MeigenDatabase for MongoDB {
             .insert_one(doc, None)
             .await
             .map_err(MongoDBError::set_fail)?;
+
+        info!("Inserted new meigen\n{:#?}", register_entry);
 
         Ok(register_entry.into())
     }
@@ -160,6 +165,8 @@ impl MeigenDatabase for MongoDB {
         if result.deleted_count == 0 {
             return Err(MongoDBError::nf(id));
         }
+
+        info!("Deleted meigen id: {}", id);
 
         Ok(())
     }

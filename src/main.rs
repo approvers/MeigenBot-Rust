@@ -2,12 +2,10 @@
 #![deny(clippy::all)]
 
 use async_trait::async_trait;
-use log::info;
+use log::{error, info};
 use serenity::client::Client;
-use serenity::http::Http;
 use serenity::model::channel::Message;
 use serenity::model::gateway::Ready;
-use serenity::model::id::ChannelId;
 use serenity::prelude::{Context, EventHandler};
 use std::env;
 use std::sync::mpsc;
@@ -20,14 +18,15 @@ mod commands;
 mod db;
 mod make_error_enum;
 mod message_parser;
+mod report;
 
+use cli::Database;
+use command_registry::call_command;
 use db::filedb::FileDB;
 use db::mongodb::MongoDB;
 use db::MeigenDatabase;
-
-const ADMIN_ID: &[u64] = &[
-    391857452360007680, //kawaemon
-];
+use message_parser::parse_message;
+use report::with_time_report_async;
 
 enum ClientEvent {
     OnReady(Context),
@@ -83,7 +82,6 @@ async fn async_main() {
         .expect("Invalid admin discord id.");
     let admin_ids = &[admin_id];
 
-    use cli::Database;
     match options.database {
         Database::File => {
             let db = FileDB::load(&options.dest)
@@ -131,27 +129,29 @@ async fn main_routine(token: String, port: u16, db: impl MeigenDatabase, admin_i
             }
 
             ClientEvent::OnMessage(msg) => {
-                let ctx = context.as_ref().expect("event was called before ready");
+                if let Some(parsed_msg) = parse_message(&msg) {
+                    let ctx = context.as_ref().expect("event was called before ready");
+                    let is_admin = admin_id.iter().any(|x| *x == msg.author.id.0);
 
-                let is_admin = admin_id.iter().any(|x| *x == msg.author.id.0);
+                    let cmd_result = with_time_report_async(
+                        call_command(&db, parsed_msg, is_admin),
+                        |r| match r.as_ref() {
+                            Ok(_) => format!("{} was ok", &msg.content),
+                            Err(e) => format!("{} was not ok: {:?}", &msg.content, &e),
+                        },
+                    )
+                    .await;
 
-                if let Some(parsed_msg) = message_parser::parse_message(&msg) {
-                    let send_msg = {
-                        match command_registry::call_command(&db, parsed_msg, is_admin).await {
-                            Ok(m) => m,
-                            Err(e) => e.to_string(),
-                        }
+                    let message = match cmd_result {
+                        Ok(r) => r,
+                        Err(e) => e.to_string(),
                     };
 
-                    send_message(&send_msg, msg.channel_id, &ctx.http).await;
+                    if let Err(e) = msg.channel_id.say(&ctx.http, &message).await {
+                        error!("Failed to send message \"{}\"\n{}", &message, e);
+                    }
                 }
             }
         }
-    }
-}
-
-async fn send_message(text: &impl std::fmt::Display, channel_id: ChannelId, http: &Arc<Http>) {
-    if let Err(e) = channel_id.say(http, text).await {
-        println!("Failed to send message \"{}\"\n{}", &text, e);
     }
 }
