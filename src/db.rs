@@ -1,21 +1,38 @@
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
+use std::fmt::{Debug, Display};
+use std::ops::Range;
 
 pub mod filedb;
 pub mod mongodb;
 
 #[async_trait]
 pub trait MeigenDatabase: Send + Sync + Clone + 'static {
-    type Error: std::fmt::Display + std::fmt::Debug;
+    type Error: Display + Debug;
 
-    // 名言を保存する。
+    // 名言を保存する
     async fn save_meigen(&mut self, _: MeigenEntry) -> Result<RegisteredMeigen, Self::Error>;
 
-    // 名言を削除する。
+    // 名言を削除する
     async fn delete_meigen(&mut self, id: u32) -> Result<(), Self::Error>;
 
-    // 名言スライスを返す。
-    async fn meigens(&self) -> Result<Vec<RegisteredMeigen>, Self::Error>;
+    // 作者名から名言検索
+    async fn search_by_author(&self, author: &str) -> Result<Vec<RegisteredMeigen>, Self::Error>;
+
+    // 名言本体から名言検索
+    async fn search_by_content(&self, content: &str) -> Result<Vec<RegisteredMeigen>, Self::Error>;
+
+    // idから名言取得
+    async fn get_by_id(&self, id: u32) -> Result<RegisteredMeigen, Self::Error>;
+
+    // idから名言取得(範囲指定)
+    async fn get_by_id_range(&self, range: &[u32]) -> Result<RegisteredMeigen, Self::Error>;
+
+    // len
+    async fn len(&self) -> Result<u64, Self::Error>;
+
+    // 全名言取得
+    async fn get_all_meigen(&self) -> Result<Vec<RegisteredMeigen>, Self::Error>;
 }
 
 #[readonly::make]
