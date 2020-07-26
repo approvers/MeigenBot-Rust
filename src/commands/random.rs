@@ -2,6 +2,8 @@ use crate::commands::{Error, Result};
 use crate::db::MeigenDatabase;
 use crate::db::RegisteredMeigen;
 use crate::message_parser::ParsedMessage;
+use rand::distributions::uniform::SampleUniform;
+use rand::Rng;
 use std::sync::Arc;
 use std::sync::RwLock;
 
@@ -14,33 +16,24 @@ pub async fn random(db: &Arc<RwLock<impl MeigenDatabase>>, message: ParsedMessag
             .map_err(|e| Error::arg_num_parse_fail(1, e))?
     };
 
+    let meigen_count = db.read().unwrap().len().await.map_err(Error::load_failed)? as u32;
+
+    let rands = gen_rand_vec(count, 0, meigen_count);
+
     let meigens = db
         .read()
         .unwrap()
-        .meigens()
+        .get_by_ids(&rands)
         .await
         .map_err(Error::load_failed)?;
 
-    let meigen_count = meigens.len();
-    let rands = gen_rand_vec(count, 0, meigen_count);
-    let mut random_meigens = vec![];
-
-    for rand_num in rands {
-        let meigen = meigens
-            .get(rand_num)
-            .expect("BUG: range of random values isn't fit to array's range.");
-        random_meigens.push(meigen);
-    }
-
-    local_listify(&random_meigens.as_slice())
+    local_listify(&meigens)
 }
 
-fn gen_rand_vec(count: usize, range_from: usize, range_to: usize) -> Vec<usize> {
-    use rand::Rng;
-
+fn gen_rand_vec(count: usize, range_from: u32, range_to: u32) -> Vec<u32> {
     let mut rng = rand::thread_rng();
 
-    let mut result = vec![0; count as usize];
+    let mut result: Vec<u32> = vec![0; count as usize];
     result
         .iter_mut()
         .for_each(|x| *x = rng.gen_range(range_from, range_to));
@@ -48,7 +41,7 @@ fn gen_rand_vec(count: usize, range_from: usize, range_to: usize) -> Vec<usize> 
     result
 }
 
-fn local_listify(list: &[&RegisteredMeigen]) -> Result {
+fn local_listify(list: &[RegisteredMeigen]) -> Result {
     const LIST_MAX_LENGTH: usize = 500;
     const MAX_LENGTH_PER_MEIGEN: usize = 50;
 

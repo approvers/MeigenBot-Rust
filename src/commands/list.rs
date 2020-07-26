@@ -25,10 +25,9 @@ pub async fn list(db: &Arc<RwLock<impl MeigenDatabase>>, message: ParsedMessage)
     let meigens = db
         .read()
         .unwrap()
-        .meigens()
+        .get_all_meigen()
         .await
         .map_err(Error::load_failed)?;
-    let meigen_refs = meigens.iter().collect::<Vec<&_>>();
 
-    listify(meigen_refs.as_slice(), show_count, page)
+    listify(&meigens, show_count, page)
 }

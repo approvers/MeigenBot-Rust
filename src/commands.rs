@@ -83,7 +83,7 @@ fn meigen_tidy_format(meigen: &RegisteredMeigen, max_length: usize) -> String {
     internal_format(meigen.id, &meigen.author, &content)
 }
 
-fn listify(slice: &[&RegisteredMeigen], show_count: i32, page: i32) -> Result {
+fn listify(slice: &[RegisteredMeigen], show_count: i32, page: i32) -> Result {
     const LIST_MAX_LENGTH: usize = 500;
     const MAX_LENGTH_PER_MEIGEN: usize = 50;
 

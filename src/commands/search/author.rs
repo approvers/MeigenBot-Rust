@@ -14,14 +14,9 @@ pub async fn author(
     let meigens = db
         .read()
         .unwrap()
-        .meigens()
+        .search_by_author(target_author)
         .await
         .map_err(Error::load_failed)?;
 
-    let filtered = meigens
-        .iter()
-        .filter(|x| x.author.contains(target_author))
-        .collect::<Vec<&_>>();
-
-    listify(filtered.as_slice(), show_count, page_num)
+    listify(&meigens, show_count, page_num)
 }

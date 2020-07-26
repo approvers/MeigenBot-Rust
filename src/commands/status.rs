@@ -5,14 +5,8 @@ use std::sync::Arc;
 use std::sync::RwLock;
 
 pub async fn status(db: &Arc<RwLock<impl MeigenDatabase>>) -> Result {
-    let meigens = db
-        .read()
-        .unwrap()
-        .meigens()
-        .await
-        .map_err(Error::load_failed)?;
-
-    let text = format!("合計名言数: {}個", meigens.len());
+    let meigens = db.read().unwrap().len().await.map_err(Error::load_failed)?;
+    let text = format!("合計名言数: {}個", meigens);
 
     Ok(text)
 }
