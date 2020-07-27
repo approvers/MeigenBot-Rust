@@ -150,9 +150,14 @@ impl MeigenDatabase for FileDB {
         Ok(result)
     }
 
-    // len
+    //len
     async fn len(&self) -> Result<u64, Self::Error> {
         Ok(self.meigens.len() as u64)
+    }
+
+    // 現在登録されている名言のなかで一番IDが大きいもの(=現在の(最大)名言ID)を返す
+    async fn current_meigen_id(&self) -> Result<u32, Self::Error> {
+        Ok(self.meigens.iter().max_by_key(|x| x.id).unwrap().id)
     }
 
     // 全名言取得

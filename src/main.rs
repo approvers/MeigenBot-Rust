@@ -124,7 +124,7 @@ async fn main_routine(token: String, port: u16, db: impl MeigenDatabase, admin_i
     for event in rx {
         match event {
             ClientEvent::OnReady(ctx) => {
-                println!("Discord Bot is ready!");
+                info!("Discord Bot is ready!");
                 context = Some(ctx);
             }
 

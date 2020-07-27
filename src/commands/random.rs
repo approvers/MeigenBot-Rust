@@ -15,7 +15,12 @@ pub async fn random(db: &Arc<RwLock<impl MeigenDatabase>>, message: ParsedMessag
             .map_err(|e| Error::arg_num_parse_fail(1, e))?
     };
 
-    let meigen_count = db.read().unwrap().len().await.map_err(Error::load_failed)? as u32;
+    let meigen_count = db
+        .read()
+        .unwrap()
+        .current_meigen_id()
+        .await
+        .map_err(Error::load_failed)? as u32;
 
     let rands = gen_rand_vec(count, 0, meigen_count);
 

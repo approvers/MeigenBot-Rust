@@ -33,7 +33,11 @@ async fn listify(db: &Arc<RwLock<impl MeigenDatabase>>, show_count: i64, page: i
     let range = {
         use std::convert::TryInto;
 
-        let meigens_end_index = db_handle.len().await.map_err(Error::load_failed)? as i64;
+        let meigens_end_index = db_handle
+            .current_meigen_id()
+            .await
+            .map_err(Error::load_failed)? as i64
+            + 1;
 
         if meigens_end_index > show_count {
             let from: usize = {

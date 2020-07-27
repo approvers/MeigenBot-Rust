@@ -103,35 +103,9 @@ impl MongoDB {
 impl MeigenDatabase for MongoDB {
     type Error = MongoDBError;
 
-    // // 名言スライスを返す。
-    // async fn meigens(&self) -> Result<Vec<RegisteredMeigen>, Self::Error> {
-    //     self.get_all_meigen().await
-    // }
-
     // 名言を保存する。
     async fn save_meigen(&mut self, entry: MeigenEntry) -> Result<RegisteredMeigen, Self::Error> {
-        let current_id = self
-            .inner
-            .aggregate(
-                vec![doc! {
-                    "$group": doc! {
-                        "_id": "",
-                        "current_id": doc! { "$max": "$id" }
-                    }
-                }],
-                None,
-            )
-            .await
-            .map_err(MongoDBError::get_fail)?
-            .next()
-            .await
-            .ok_or_else(|| MongoDBError::get_fail("returned none"))?
-            .map_err(MongoDBError::get_fail)?
-            .get("current_id")
-            .ok_or_else(|| MongoDBError::get_fail("mongodb didn't returned current_id"))?
-            .as_i64()
-            .ok_or_else(|| MongoDBError::get_fail("current_id wasn't Int64"))?
-            as u32;
+        let current_id = self.current_meigen_id().await? as u32;
 
         let register_entry = MongoMeigen {
             id: (current_id + 1) as i64,
@@ -180,7 +154,8 @@ impl MeigenDatabase for MongoDB {
 
     // 名言本体から名言検索
     async fn search_by_content(&self, content: &str) -> Result<Vec<RegisteredMeigen>, Self::Error> {
-        self.search_by_doc(doc! { "content": content }).await
+        self.search_by_doc(doc! { "content": doc! { "$regex": format!(".*{}.*", content) } })
+            .await
     }
 
     // idから名言取得
@@ -197,6 +172,31 @@ impl MeigenDatabase for MongoDB {
     // idから名言取得(複数指定) 一致するIDの名言がなかった場合はスキップする
     async fn get_by_ids(&self, ids: &[u32]) -> Result<Vec<RegisteredMeigen>, Self::Error> {
         self.search_by_doc(doc! { "id": { "$in": ids } }).await
+    }
+
+    // 現在登録されている名言のなかで一番IDが大きいもの(=現在の(最大)名言ID)を返す
+    async fn current_meigen_id(&self) -> Result<u32, Self::Error> {
+        self.inner
+            .aggregate(
+                vec![doc! {
+                    "$group": doc! {
+                        "_id": "",
+                        "current_id": doc! { "$max": "$id" }
+                    }
+                }],
+                None,
+            )
+            .await
+            .map_err(MongoDBError::get_fail)?
+            .next()
+            .await
+            .ok_or_else(|| MongoDBError::get_fail("returned none"))?
+            .map_err(MongoDBError::get_fail)?
+            .get("current_id")
+            .ok_or_else(|| MongoDBError::get_fail("mongodb didn't returned current_id"))?
+            .as_i64()
+            .ok_or_else(|| MongoDBError::get_fail("current_id wasn't Int64"))
+            .map(|x| x as u32)
     }
 
     // len

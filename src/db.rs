@@ -27,6 +27,9 @@ pub trait MeigenDatabase: Send + Sync + Clone + 'static {
     // idから名言取得(複数指定) 一致するIDの名言がなかった場合はスキップする
     async fn get_by_ids(&self, ids: &[u32]) -> Result<Vec<RegisteredMeigen>, Self::Error>;
 
+    // 現在登録されている名言のなかで一番IDが大きいもの(=現在の(最大)名言ID)を返す
+    async fn current_meigen_id(&self) -> Result<u32, Self::Error>;
+
     // len
     async fn len(&self) -> Result<u64, Self::Error>;
 
