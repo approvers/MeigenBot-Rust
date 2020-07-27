@@ -2,7 +2,6 @@ use crate::commands::{Error, Result};
 use crate::db::MeigenDatabase;
 use crate::db::RegisteredMeigen;
 use crate::message_parser::ParsedMessage;
-use rand::distributions::uniform::SampleUniform;
 use rand::Rng;
 use std::sync::Arc;
 use std::sync::RwLock;

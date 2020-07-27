@@ -83,47 +83,47 @@ fn meigen_tidy_format(meigen: &RegisteredMeigen, max_length: usize) -> String {
     internal_format(meigen.id, &meigen.author, &content)
 }
 
-fn listify(slice: &[RegisteredMeigen], show_count: i32, page: i32) -> Result {
-    const LIST_MAX_LENGTH: usize = 500;
-    const MAX_LENGTH_PER_MEIGEN: usize = 50;
+// fn listify(slice: &[RegisteredMeigen], show_count: i32, page: i32) -> Result {
+//     const LIST_MAX_LENGTH: usize = 500;
+//     const MAX_LENGTH_PER_MEIGEN: usize = 50;
 
-    let range = {
-        use std::convert::TryInto;
+//     let range = {
+//         use std::convert::TryInto;
 
-        let meigens_end_index = slice.len() as i32;
-        if meigens_end_index > show_count {
-            let from: usize = {
-                (meigens_end_index - show_count - (show_count * (page - 1)))
-                    .try_into()
-                    .map_err(Error::num_parse_fail)?
-            };
+//         let meigens_end_index = slice.len() as i32;
+//         if meigens_end_index > show_count {
+//             let from: usize = {
+//                 (meigens_end_index - show_count - (show_count * (page - 1)))
+//                     .try_into()
+//                     .map_err(Error::num_parse_fail)?
+//             };
 
-            let to: usize = {
-                (meigens_end_index - (show_count * (page - 1)))
-                    .try_into()
-                    .map_err(Error::num_parse_fail)?
-            };
+//             let to: usize = {
+//                 (meigens_end_index - (show_count * (page - 1)))
+//                     .try_into()
+//                     .map_err(Error::num_parse_fail)?
+//             };
 
-            &slice[from..to]
-        } else {
-            &slice[0..(slice.len())]
-        }
-    };
+//             &slice[from..to]
+//         } else {
+//             &slice[0..(slice.len())]
+//         }
+//     };
 
-    let mut result = String::new();
+//     let mut result = String::new();
 
-    for meigen in range {
-        let formatted = meigen_tidy_format(meigen, MAX_LENGTH_PER_MEIGEN);
-        result += &format!("\n{}", &formatted);
-    }
+//     for meigen in range {
+//         let formatted = meigen_tidy_format(meigen, MAX_LENGTH_PER_MEIGEN);
+//         result += &format!("\n{}", &formatted);
+//     }
 
-    if result.is_empty() {
-        return Err(Error::no_meigen_matches());
-    }
+//     if result.is_empty() {
+//         return Err(Error::no_meigen_matches());
+//     }
 
-    if result.chars().count() >= LIST_MAX_LENGTH {
-        return Err(Error::too_many_meigen_matches());
-    }
+//     if result.chars().count() >= LIST_MAX_LENGTH {
+//         return Err(Error::too_many_meigen_matches());
+//     }
 
-    Ok(result)
-}
+//     Ok(result)
+// }

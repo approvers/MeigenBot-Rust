@@ -1,4 +1,4 @@
-use crate::commands::listify;
+use super::listify;
 use crate::commands::Error;
 use crate::commands::Result;
 use crate::db::MeigenDatabase;

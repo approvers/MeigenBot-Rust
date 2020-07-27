@@ -120,23 +120,14 @@ impl<D: MeigenDatabase> ApiServer<D> {
     }
 
     async fn get_all_entries(db: &Database<D>) -> Result<Vec<RegisteredMeigen>, D::Error> {
-        db.read().unwrap().meigens().await
+        db.read().unwrap().get_all_meigen().await
     }
 
     async fn get_by_author(
         db: &Database<D>,
         filter: &str,
     ) -> Result<Vec<RegisteredMeigen>, D::Error> {
-        let r = db
-            .read()
-            .unwrap()
-            .meigens()
-            .await?
-            .drain(..)
-            .filter(|x| x.author.contains(&filter))
-            .collect();
-
-        Ok(r)
+        db.read().unwrap().search_by_author(filter).await
     }
 }
 
