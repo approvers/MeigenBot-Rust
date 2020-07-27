@@ -93,9 +93,7 @@ impl<D: MeigenDatabase> ApiServer<D> {
         };
 
         let json = json(&error);
-        let reply = reply::with_status(json, StatusCode::INTERNAL_SERVER_ERROR);
-
-        reply
+        reply::with_status(json, StatusCode::INTERNAL_SERVER_ERROR)
     }
 
     async fn handle_rejection(err: Rejection) -> Result<WithStatus<Json>, Infallible> {
