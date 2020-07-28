@@ -136,8 +136,8 @@ async fn main_routine(token: String, port: u16, db: impl MeigenDatabase, admin_i
                     let cmd_result = with_time_report_async(
                         call_command(&db, parsed_msg, is_admin),
                         |r| match r.as_ref() {
-                            Ok(_) => format!("{} was ok", &msg.content),
-                            Err(e) => format!("{} was not ok: {:?}", &msg.content, &e),
+                            Ok(_) => format!("\"{}\" was ok", &msg.content),
+                            Err(e) => format!("\"{}\" was not ok: {:?}", &msg.content, &e),
                         },
                     )
                     .await;

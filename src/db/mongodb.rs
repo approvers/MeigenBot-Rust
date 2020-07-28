@@ -1,15 +1,13 @@
-use crate::db::MeigenDatabase;
-use crate::db::MeigenEntry;
-use crate::db::RegisteredMeigen;
+use crate::db::{MeigenDatabase, MeigenEntry, RegisteredMeigen};
 use async_trait::async_trait;
-use mongodb::bson::doc;
-use mongodb::bson::Bson;
-use mongodb::bson::Document;
+use log::info;
+use mongodb::bson::{doc, Bson, Document};
+use mongodb::event::cmap::{CmapEventHandler, ConnectionClosedEvent, ConnectionCreatedEvent};
 use mongodb::options::ClientOptions;
-use mongodb::Client;
-use mongodb::Collection;
-use serde::Deserialize;
-use serde::Serialize;
+use mongodb::{Client, Collection};
+use serde::{Deserialize, Serialize};
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
 use tokio::stream::StreamExt;
 
 crate::make_error_enum! {
@@ -52,6 +50,40 @@ impl Into<RegisteredMeigen> for MongoMeigen {
     }
 }
 
+struct MongoDBConnectionLogger {
+    count: Mutex<u32>,
+}
+
+impl MongoDBConnectionLogger {
+    fn new() -> Self {
+        Self {
+            count: Mutex::new(0),
+        }
+    }
+}
+
+impl CmapEventHandler for MongoDBConnectionLogger {
+    fn handle_connection_created_event(&self, _: ConnectionCreatedEvent) {
+        let mut count = self.count.lock().unwrap();
+        *count += 1;
+
+        info!(
+            "New MongoDB connection created. current connection count: {}",
+            count
+        );
+    }
+
+    fn handle_connection_closed_event(&self, _: ConnectionClosedEvent) {
+        let mut count = self.count.lock().unwrap();
+        *count -= 1;
+
+        info!(
+            "MongoDB connection closed. current connection count: {}",
+            count
+        );
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct MongoDB {
     inner: Collection,
@@ -64,6 +96,10 @@ impl MongoDB {
             .map_err(MongoDBError::url_parse_fail)?;
 
         client_options.app_name = Some("Meigen Rust".into());
+        client_options.cmap_event_handler = Some(Arc::new(MongoDBConnectionLogger::new()));
+        client_options.min_pool_size = Some(0);
+        client_options.max_pool_size = Some(1);
+        client_options.max_idle_time = Some(Duration::from_secs(15));
 
         let database = Client::with_options(client_options)
             .map_err(MongoDBError::option_validate_fail)?
