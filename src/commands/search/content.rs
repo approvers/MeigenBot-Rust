@@ -1,4 +1,4 @@
-use crate::commands::listify;
+use super::listify;
 use crate::commands::Error;
 use crate::commands::Result;
 use crate::db::MeigenDatabase;
@@ -14,14 +14,9 @@ pub async fn content(
     let meigens = db
         .read()
         .unwrap()
-        .meigens()
+        .search_by_content(target_content)
         .await
         .map_err(Error::load_failed)?;
 
-    let filtered = meigens
-        .iter()
-        .filter(|x| x.content.contains(target_content))
-        .collect::<Vec<&_>>();
-
-    listify(filtered.as_slice(), show_count, page_num)
+    listify(&meigens, show_count, page_num)
 }

@@ -78,6 +78,7 @@ impl FileDB {
 impl MeigenDatabase for FileDB {
     type Error = FileDBError;
 
+    // 名言を保存する
     async fn save_meigen(&mut self, entry: MeigenEntry) -> Result<RegisteredMeigen, Self::Error> {
         self.current_id += 1;
 
@@ -93,10 +94,7 @@ impl MeigenDatabase for FileDB {
         Ok(register_entry)
     }
 
-    async fn meigens(&self) -> Result<Vec<RegisteredMeigen>, Self::Error> {
-        Ok(self.meigens.clone())
-    }
-
+    // 名言を削除する
     async fn delete_meigen(&mut self, id: u32) -> Result<(), Self::Error> {
         let index = self
             .meigens
@@ -106,5 +104,64 @@ impl MeigenDatabase for FileDB {
 
         self.meigens.remove(index);
         self.save().await
+    }
+
+    // 作者名から名言検索
+    async fn search_by_author(&self, author: &str) -> Result<Vec<RegisteredMeigen>, Self::Error> {
+        let list = self
+            .meigens
+            .iter()
+            .filter(|x| x.author.contains(author))
+            .cloned()
+            .collect();
+        Ok(list)
+    }
+
+    // 名言本体から名言検索
+    async fn search_by_content(&self, content: &str) -> Result<Vec<RegisteredMeigen>, Self::Error> {
+        let list = self
+            .meigens
+            .iter()
+            .filter(|x| x.content.contains(content))
+            .cloned()
+            .collect();
+        Ok(list)
+    }
+
+    // idから名言取得
+    async fn get_by_id(&self, id: u32) -> Result<RegisteredMeigen, Self::Error> {
+        self.meigens
+            .iter()
+            .find(|x| x.id == id)
+            .ok_or_else(|| FileDBError::nf(id))
+            .map(|x| x.clone())
+    }
+
+    // idから名言取得(複数指定) 一致するIDの名言がなかった場合はスキップする
+    async fn get_by_ids(&self, ids: &[u32]) -> Result<Vec<RegisteredMeigen>, Self::Error> {
+        let mut result = vec![];
+
+        for target_id in ids {
+            if let Some(meigen) = self.meigens.iter().find(|x| x.id == *target_id) {
+                result.push(meigen.clone())
+            }
+        }
+
+        Ok(result)
+    }
+
+    //len
+    async fn len(&self) -> Result<u64, Self::Error> {
+        Ok(self.meigens.len() as u64)
+    }
+
+    // 現在登録されている名言のなかで一番IDが大きいもの(=現在の(最大)名言ID)を返す
+    async fn current_meigen_id(&self) -> Result<u32, Self::Error> {
+        Ok(self.meigens.iter().max_by_key(|x| x.id).unwrap().id)
+    }
+
+    // 全名言取得
+    async fn get_all_meigen(&self) -> Result<Vec<RegisteredMeigen>, Self::Error> {
+        Ok(self.meigens.clone())
     }
 }

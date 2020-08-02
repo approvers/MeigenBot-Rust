@@ -60,15 +60,7 @@ impl<D: MeigenDatabase> ApiServer<D> {
 
             Err(e) => {
                 let log_msg = format!("GET /all Error: {}", e);
-                let error = ErrorMessage {
-                    code: 500,
-                    message: String::from("Internal error"),
-                };
-
-                let json = json(&error);
-                let reply = reply::with_status(json, StatusCode::INTERNAL_SERVER_ERROR);
-
-                (log_msg, reply)
+                (log_msg, Self::internal_error())
             }
         })
     }
@@ -88,18 +80,20 @@ impl<D: MeigenDatabase> ApiServer<D> {
 
                 Err(e) => {
                     let log_msg = format!("GET /author/{} Error: {}", filter, e);
-                    let error = ErrorMessage {
-                        code: 500,
-                        message: String::from("Internal error"),
-                    };
-
-                    let json = json(&error);
-                    let reply = reply::with_status(json, StatusCode::INTERNAL_SERVER_ERROR);
-
-                    (log_msg, reply)
+                    (log_msg, Self::internal_error())
                 }
             }
         })
+    }
+
+    fn internal_error() -> WithStatus<Json> {
+        let error = ErrorMessage {
+            code: 500,
+            message: String::from("Internal error"),
+        };
+
+        let json = json(&error);
+        reply::with_status(json, StatusCode::INTERNAL_SERVER_ERROR)
     }
 
     async fn handle_rejection(err: Rejection) -> Result<WithStatus<Json>, Infallible> {
@@ -120,30 +114,22 @@ impl<D: MeigenDatabase> ApiServer<D> {
     }
 
     async fn get_all_entries(db: &Database<D>) -> Result<Vec<RegisteredMeigen>, D::Error> {
-        db.read().unwrap().meigens().await
+        db.read().unwrap().get_all_meigen().await
     }
 
     async fn get_by_author(
         db: &Database<D>,
         filter: &str,
     ) -> Result<Vec<RegisteredMeigen>, D::Error> {
-        let r = db
-            .read()
-            .unwrap()
-            .meigens()
-            .await?
-            .drain(..)
-            .filter(|x| x.author.contains(&filter))
-            .collect();
-
-        Ok(r)
+        db.read().unwrap().search_by_author(filter).await
     }
 }
 
 #[inline]
-fn with_report<F, R>(f: F) -> R
+fn with_report<F, R, M>(f: F) -> R
 where
-    F: FnOnce() -> (String, R),
+    F: FnOnce() -> (M, R),
+    M: std::fmt::Display,
 {
     let begin = Instant::now();
     let result = f();

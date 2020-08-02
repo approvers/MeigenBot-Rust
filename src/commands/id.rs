@@ -14,17 +14,12 @@ pub async fn id(db: &Arc<RwLock<impl MeigenDatabase>>, message: ParsedMessage) -
         .parse::<u32>()
         .map_err(|e| Error::arg_num_parse_fail(1, e))?;
 
-    let meigens = db
+    let found_meigen = db
         .read()
         .unwrap()
-        .meigens()
+        .get_by_id(id)
         .await
         .map_err(Error::load_failed)?;
 
-    let found_meigen = meigens
-        .iter()
-        .find(|x| x.id == id)
-        .ok_or_else(|| Error::meigen_nf(id))?;
-
-    Ok(meigen_format(found_meigen))
+    Ok(meigen_format(&found_meigen))
 }
