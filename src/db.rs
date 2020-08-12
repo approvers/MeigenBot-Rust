@@ -7,7 +7,7 @@ pub mod mongodb;
 
 #[async_trait]
 pub trait MeigenDatabase: Send + Sync + Clone + 'static {
-    type Error: Display + Debug;
+    type Error: Display + Debug + Send + Sync;
 
     // 名言を保存する
     async fn save_meigen(&mut self, _: MeigenEntry) -> Result<RegisteredMeigen, Self::Error>;

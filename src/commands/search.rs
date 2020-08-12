@@ -10,7 +10,7 @@ use crate::commands::{meigen_tidy_format, Error, Result};
 use crate::db::{MeigenDatabase, RegisteredMeigen};
 use crate::message_parser::ParsedMessage;
 use std::sync::Arc;
-use std::sync::RwLock;
+use tokio::sync::RwLock;
 
 const AUTHOR_SEARCH_COMMAND: &str = "author";
 const WORD_SEARCH_COMMAND: &str = "content";

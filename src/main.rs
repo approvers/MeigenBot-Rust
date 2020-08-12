@@ -9,7 +9,8 @@ use serenity::model::gateway::Ready;
 use serenity::prelude::{Context, EventHandler};
 use std::env;
 use std::sync::mpsc;
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, Mutex};
+use tokio::sync::RwLock;
 
 mod api;
 mod cli;
@@ -55,14 +56,13 @@ impl EventHandler for BotEvHandler {
 fn main() {
     simple_logger::init_with_level(log::Level::Info).unwrap();
 
-    let mut runtime = tokio::runtime::Builder::new()
+    tokio::runtime::Builder::new()
         .enable_time()
         .enable_io()
         .threaded_scheduler()
         .build()
-        .expect("Failed to build tokio runtime.");
-
-    runtime.block_on(async_main());
+        .expect("Failed to build tokio runtime.")
+        .block_on(async_main());
 }
 
 async fn async_main() {

@@ -2,7 +2,7 @@ use crate::commands::{meigen_tidy_format, Error, Result};
 use crate::db::MeigenDatabase;
 use crate::message_parser::ParsedMessage;
 use std::sync::Arc;
-use std::sync::RwLock;
+use tokio::sync::RwLock;
 
 const LIST_MEIGEN_DEFAULT_COUNT: i64 = 5;
 const LIST_MEIGEN_DEFAULT_PAGE: i64 = 1;
@@ -28,12 +28,12 @@ async fn listify(db: &Arc<RwLock<impl MeigenDatabase>>, show_count: i64, page: i
     const LIST_MAX_LENGTH: usize = 500;
     const MAX_LENGTH_PER_MEIGEN: usize = 50;
 
-    let db_handle = db.read().unwrap();
-
     let range = {
         use std::convert::TryInto;
 
-        let meigens_end_index = db_handle
+        let meigens_end_index = db
+            .read()
+            .await
             .current_meigen_id()
             .await
             .map_err(Error::load_failed)? as i64
@@ -64,7 +64,9 @@ async fn listify(db: &Arc<RwLock<impl MeigenDatabase>>, show_count: i64, page: i
     }
 
     let mut result = String::new();
-    let meigens = db_handle
+    let meigens = db
+        .read()
+        .await
         .get_by_ids(&indexes)
         .await
         .map_err(Error::load_failed)?;
