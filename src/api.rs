@@ -1,6 +1,7 @@
 use crate::db::MeigenDatabase;
 use std::net::SocketAddr;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
+use tokio::sync::RwLock;
 
 mod inner;
 

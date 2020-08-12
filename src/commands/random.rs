@@ -4,7 +4,7 @@ use crate::db::RegisteredMeigen;
 use crate::message_parser::ParsedMessage;
 use rand::Rng;
 use std::sync::Arc;
-use std::sync::RwLock;
+use tokio::sync::RwLock;
 
 pub async fn random(db: &Arc<RwLock<impl MeigenDatabase>>, message: ParsedMessage) -> Result {
     let count: usize = {
@@ -17,7 +17,7 @@ pub async fn random(db: &Arc<RwLock<impl MeigenDatabase>>, message: ParsedMessag
 
     let meigen_count = db
         .read()
-        .unwrap()
+        .await
         .current_meigen_id()
         .await
         .map_err(Error::load_failed)? as u32;
@@ -26,7 +26,7 @@ pub async fn random(db: &Arc<RwLock<impl MeigenDatabase>>, message: ParsedMessag
 
     let meigens = db
         .read()
-        .unwrap()
+        .await
         .get_by_ids(&rands)
         .await
         .map_err(Error::load_failed)?;

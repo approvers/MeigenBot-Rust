@@ -1,9 +1,8 @@
-use crate::commands::Error;
-use crate::commands::Result;
+use crate::commands::{Error, Result};
 use crate::db::MeigenDatabase;
 use crate::message_parser::ParsedMessage;
 use std::sync::Arc;
-use std::sync::RwLock;
+use tokio::sync::RwLock;
 
 pub async fn delete(db: &Arc<RwLock<impl MeigenDatabase>>, message: ParsedMessage) -> Result {
     if message.args.is_empty() {
@@ -18,7 +17,7 @@ pub async fn delete(db: &Arc<RwLock<impl MeigenDatabase>>, message: ParsedMessag
         .map_err(|e| Error::arg_num_parse_fail(1, e))?;
 
     db.write()
-        .unwrap()
+        .await
         .delete_meigen(id)
         .await
         .map_err(Error::save_failed)?;

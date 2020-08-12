@@ -1,9 +1,8 @@
 use super::listify;
-use crate::commands::Error;
-use crate::commands::Result;
+use crate::commands::{Error, Result};
 use crate::db::MeigenDatabase;
 use std::sync::Arc;
-use std::sync::RwLock;
+use tokio::sync::RwLock;
 
 pub async fn author(
     db: &Arc<RwLock<impl MeigenDatabase>>,
@@ -13,7 +12,7 @@ pub async fn author(
 ) -> Result {
     let meigens = db
         .read()
-        .unwrap()
+        .await
         .search_by_author(target_author)
         .await
         .map_err(Error::load_failed)?;

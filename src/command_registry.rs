@@ -3,7 +3,7 @@ use crate::commands::Error;
 use crate::db::MeigenDatabase;
 use crate::message_parser;
 use std::sync::Arc;
-use std::sync::RwLock;
+use tokio::sync::RwLock;
 
 const MAKE_COMMAND: &str = "make";
 const LIST_COMMAND: &str = "list";

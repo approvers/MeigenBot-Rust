@@ -4,7 +4,7 @@ use crate::db::MeigenDatabase;
 use crate::db::MeigenEntry;
 use crate::message_parser::ParsedMessage;
 use std::sync::Arc;
-use std::sync::RwLock;
+use tokio::sync::RwLock;
 
 use log::error;
 
@@ -37,7 +37,7 @@ pub async fn make(db: &Arc<RwLock<impl MeigenDatabase>>, message: ParsedMessage)
 
     let registered_meigen = db
         .write()
-        .unwrap()
+        .await
         .save_meigen(new_meigen_entry)
         .await
         .map_err(|err| {

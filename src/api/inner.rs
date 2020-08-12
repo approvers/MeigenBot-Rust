@@ -1,140 +1,99 @@
-use crate::db::{MeigenDatabase, RegisteredMeigen};
-use futures::executor::block_on;
-use log::info;
+use crate::db::MeigenDatabase;
 use percent_encoding::percent_decode;
-use serde::Serialize;
 use std::convert::Infallible;
 use std::net::SocketAddr;
-use std::sync::{Arc, RwLock};
-use std::time::Instant;
+use std::sync::Arc;
+use tokio::sync::RwLock;
 use warp::http::StatusCode;
-use warp::reply::{self, json, Json, WithStatus};
+use warp::reply::Reply;
+use warp::reply::{self, json, Json};
 use warp::{path, Filter, Rejection};
 
-type Database<D> = Arc<RwLock<D>>;
+#[derive(Debug)]
+struct RejectionDBError<E: std::fmt::Debug + Send + Sync + 'static>(E);
+impl<E: std::fmt::Debug + Send + Sync + 'static> warp::reject::Reject for RejectionDBError<E> {}
 
-#[derive(Serialize)]
-struct ErrorMessage {
-    code: u16,
-    message: String,
-}
+#[derive(Debug)]
+struct URLDecodeFailed;
+impl warp::reject::Reject for URLDecodeFailed {}
+
+type Synced<D> = Arc<RwLock<D>>;
 
 #[derive(Clone)]
 pub struct ApiServer<D: MeigenDatabase> {
     address: SocketAddr,
-    db: Database<D>,
+    db: Synced<D>,
 }
 
 impl<D: MeigenDatabase> ApiServer<D> {
-    pub fn new(address: SocketAddr, db: Database<D>) -> Self {
+    pub fn new(address: SocketAddr, db: Synced<D>) -> Self {
         Self { address, db }
     }
 
-    pub async fn start(self) {
-        let all = {
-            let db = Arc::clone(&self.db);
-            path!("all").map(move || Self::handle_all(&db))
-        };
+    fn with_db(&self) -> impl Filter<Extract = (Synced<D>,), Error = Infallible> + Clone {
+        let db = Arc::clone(&self.db);
+        warp::any().map(move || Arc::clone(&db))
+    }
 
-        let by_author = {
-            let db = Arc::clone(&self.db);
-            path!("author" / String).map(move |f| Self::handle_author(&db, f))
-        };
+    pub async fn start(self) {
+        let all = path!("all").and(self.with_db()).and_then(Self::all);
+
+        let by_author = path!("author" / String)
+            .and(self.with_db())
+            .and_then(Self::by_author);
+
+        let paths = all.or(by_author);
 
         let routes = warp::get()
-            .and(all.or(by_author))
-            .recover(Self::handle_rejection);
+            .and(paths)
+            .recover(Self::recover)
+            .with(warp::log("api"));
 
         warp::serve(routes).run(self.address).await;
     }
 
-    fn handle_all(db: &Database<D>) -> WithStatus<Json> {
-        with_report(|| match block_on(Self::get_all_entries(&db)) {
-            Ok(a) => {
-                let log_msg = "GET /all";
-                let json = json(&a);
-                let reply = reply::with_status(json, StatusCode::OK);
+    async fn all(db: Synced<D>) -> Result<Json, Rejection> {
+        let meigens = db
+            .read()
+            .await
+            .get_all_meigen()
+            .await
+            .map_err(RejectionDBError)
+            .map_err(warp::reject::custom)?;
 
-                (String::from(log_msg), reply)
-            }
-
-            Err(e) => {
-                let log_msg = format!("GET /all Error: {}", e);
-                (log_msg, Self::internal_error())
-            }
-        })
+        Ok(json(&meigens))
     }
 
-    fn handle_author(db: &Database<D>, filter: String) -> WithStatus<Json> {
-        with_report(|| {
-            let filter = percent_decode(filter.as_bytes()).decode_utf8().unwrap();
+    async fn by_author(param: String, db: Synced<D>) -> Result<Json, Rejection> {
+        let filter_author = percent_decode(&param.as_bytes())
+            .decode_utf8()
+            .map_err(|_| URLDecodeFailed)
+            .map_err(warp::reject::custom)?;
 
-            match &block_on(Self::get_by_author(&db, filter.as_ref())) {
-                Ok(a) => {
-                    let log_msg = format!("GET /author/{}", filter);
-                    let json = json(&a);
-                    let reply = reply::with_status(json, StatusCode::OK);
+        let meigens = db
+            .read()
+            .await
+            .search_by_author(&filter_author)
+            .await
+            .map_err(RejectionDBError)
+            .map_err(warp::reject::custom)?;
 
-                    (log_msg, reply)
-                }
-
-                Err(e) => {
-                    let log_msg = format!("GET /author/{} Error: {}", filter, e);
-                    (log_msg, Self::internal_error())
-                }
-            }
-        })
+        Ok(json(&meigens))
     }
 
-    fn internal_error() -> WithStatus<Json> {
-        let error = ErrorMessage {
-            code: 500,
-            message: String::from("Internal error"),
-        };
-
-        let json = json(&error);
-        reply::with_status(json, StatusCode::INTERNAL_SERVER_ERROR)
+    async fn recover(rejection: Rejection) -> Result<impl Reply, Rejection> {
+        if let Some(_e) = rejection.find::<RejectionDBError<D::Error>>() {
+            const TEXT: &str = "Internal Server Error (Database Error)";
+            Ok(reply::with_status(TEXT, StatusCode::INTERNAL_SERVER_ERROR))
+        //
+        } else if let Some(URLDecodeFailed) = rejection.find() {
+            Ok(reply::with_status(
+                "URL decode failed",
+                StatusCode::BAD_REQUEST,
+            ))
+        //
+        } else {
+            Err(rejection)
+        }
     }
-
-    async fn handle_rejection(err: Rejection) -> Result<WithStatus<Json>, Infallible> {
-        let (code, message) = {
-            if err.is_not_found() {
-                (StatusCode::NOT_FOUND, "Not found")
-            } else {
-                (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error")
-            }
-        };
-
-        let json = json(&ErrorMessage {
-            code: code.as_u16(),
-            message: String::from(message),
-        });
-
-        Ok(reply::with_status(json, code))
-    }
-
-    async fn get_all_entries(db: &Database<D>) -> Result<Vec<RegisteredMeigen>, D::Error> {
-        db.read().unwrap().get_all_meigen().await
-    }
-
-    async fn get_by_author(
-        db: &Database<D>,
-        filter: &str,
-    ) -> Result<Vec<RegisteredMeigen>, D::Error> {
-        db.read().unwrap().search_by_author(filter).await
-    }
-}
-
-#[inline]
-fn with_report<F, R, M>(f: F) -> R
-where
-    F: FnOnce() -> (M, R),
-    M: std::fmt::Display,
-{
-    let begin = Instant::now();
-    let result = f();
-    let took_time = (Instant::now() - begin).as_millis();
-
-    info!("{}: took {}ms", result.0, took_time);
-    result.1
 }
