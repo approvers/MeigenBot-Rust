@@ -27,8 +27,8 @@ warp = "0.2.3"
 percent-encoding = "2.1.0"
 
 [dependencies.serenity]
-git = "https://github.com/acdenisSK/serenity"
-branch = "await_next"
+git = "https://github.com/serenity-rs/serenity"
+branch = "next"
 default-features = false
 features = ["rustls_backend", "cache", "client", "gateway", "model"]
 
