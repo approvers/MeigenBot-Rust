@@ -247,8 +247,8 @@ impl MeigenDatabase for MongoDB {
             .map_err(MongoDBError::get_fail)?
             .get("id")
             .ok_or_else(|| MongoDBError::get_fail("MongoDB response doesn't contain \"id\" field"))?
-            .as_i64()
-            .ok_or_else(|| MongoDBError::get_fail("MongoDB response's \"id\" field wasn't i64"))
+            .as_f64()
+            .ok_or_else(|| MongoDBError::get_fail("MongoDB response's \"id\" field wasn't f64"))
             .map(|x| x as u64)
     }
 
