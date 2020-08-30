@@ -185,12 +185,13 @@ impl MeigenDatabase for MongoDB {
 
     // 作者名から名言検索
     async fn search_by_author(&self, author: &str) -> Result<Vec<RegisteredMeigen>, Self::Error> {
-        self.search_by_doc(doc! { "author": author }).await
+        self.search_by_doc(doc! { "author": { "$regex": format!(".*{}.*", author) }})
+            .await
     }
 
     // 名言本体から名言検索
     async fn search_by_content(&self, content: &str) -> Result<Vec<RegisteredMeigen>, Self::Error> {
-        self.search_by_doc(doc! { "content": doc! { "$regex": format!(".*{}.*", content) } })
+        self.search_by_doc(doc! { "content": { "$regex": format!(".*{}.*", content) }})
             .await
     }
 
@@ -215,9 +216,11 @@ impl MeigenDatabase for MongoDB {
         self.inner
             .aggregate(
                 vec![doc! {
-                    "$group": doc! {
+                    "$group": {
                         "_id": "",
-                        "current_id": doc! { "$max": "$id" }
+                        "current_id": {
+                            "$max": "$id"
+                        }
                     }
                 }],
                 None,
@@ -247,7 +250,7 @@ impl MeigenDatabase for MongoDB {
             .map_err(MongoDBError::get_fail)?
             .get("id")
             .ok_or_else(|| MongoDBError::get_fail("MongoDB response doesn't contain \"id\" field"))?
-            .as_f64()
+            .as_i32()
             .ok_or_else(|| MongoDBError::get_fail("MongoDB response's \"id\" field wasn't f64"))
             .map(|x| x as u64)
     }
