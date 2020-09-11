@@ -23,6 +23,26 @@ crate::make_error_enum! {
     NotFoundMeigen nf(id) => "ID{}を持つ名言はありません",
 }
 
+trait ResultExt<T, E> {
+    fn edit<F>(self, f: F) -> Self
+    where
+        F: FnOnce(&mut T);
+}
+
+impl<T, E> ResultExt<T, E> for Result<T, E> {
+    fn edit<F>(mut self, f: F) -> Self
+    where
+        F: FnOnce(&mut T),
+    {
+        match self {
+            Ok(ref mut x) => f(x),
+            Err(_) => {}
+        }
+
+        self
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct MongoMeigen {
     id: i64,
@@ -167,12 +187,7 @@ impl MeigenDatabase for MongoDB {
     async fn delete_meigen(&mut self, id: u32) -> Result<(), Self::Error> {
         let result = self
             .inner
-            .delete_one(
-                doc! {
-                    "id": Bson::Int64(id as i64)
-                },
-                None,
-            )
+            .delete_one(doc! { "id": Bson::Int64(id as i64) }, None)
             .await
             .map_err(MongoDBError::delete_fail)?;
 
@@ -187,12 +202,14 @@ impl MeigenDatabase for MongoDB {
     async fn search_by_author(&self, author: &str) -> Result<Vec<RegisteredMeigen>, Self::Error> {
         self.search_by_doc(doc! { "author": { "$regex": format!(".*{}.*", author) }})
             .await
+            .edit(|x| x.sort_by(|a, b| a.id.partial_cmp(&b.id).unwrap()))
     }
 
     // 名言本体から名言検索
     async fn search_by_content(&self, content: &str) -> Result<Vec<RegisteredMeigen>, Self::Error> {
         self.search_by_doc(doc! { "content": { "$regex": format!(".*{}.*", content) }})
             .await
+            .edit(|x| x.sort_by(|a, b| a.id.partial_cmp(&b.id).unwrap()))
     }
 
     // idから名言取得
@@ -208,7 +225,9 @@ impl MeigenDatabase for MongoDB {
 
     // idから名言取得(複数指定) 一致するIDの名言がなかった場合はスキップする
     async fn get_by_ids(&self, ids: &[u32]) -> Result<Vec<RegisteredMeigen>, Self::Error> {
-        self.search_by_doc(doc! { "id": { "$in": ids } }).await
+        self.search_by_doc(doc! { "id": { "$in": ids } })
+            .await
+            .edit(|x| x.sort_by(|a, b| a.id.partial_cmp(&b.id).unwrap()))
     }
 
     // 現在登録されている名言のなかで一番IDが大きいもの(=現在の(最大)名言ID)を返す
@@ -257,6 +276,9 @@ impl MeigenDatabase for MongoDB {
 
     // 全名言取得
     async fn get_all_meigen(&self) -> Result<Vec<RegisteredMeigen>, MongoDBError> {
-        self.search_by_doc(None).await
+        self.search_by_doc(None).await.map(|mut x| {
+            x.sort_by(|a, b| a.id.partial_cmp(&b.id).unwrap());
+            x
+        })
     }
 }
