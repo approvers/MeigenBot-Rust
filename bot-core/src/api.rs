@@ -6,7 +6,5 @@ use tokio::sync::RwLock;
 mod inner;
 
 pub async fn launch(address: impl Into<SocketAddr>, db: Arc<RwLock<impl MeigenDatabase>>) {
-    let instance = inner::ApiServer::new(address.into(), db);
-
-    instance.start().await;
+    inner::ApiServer::new(address.into(), db).start().await;
 }

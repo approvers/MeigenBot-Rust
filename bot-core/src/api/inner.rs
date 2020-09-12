@@ -36,6 +36,7 @@ impl<D: MeigenDatabase> ApiServer<D> {
     }
 
     pub async fn start(self) {
+        log::info!("Starting Meigen Api server at {:?}", self.address);
         let all = path!("all").and(self.with_db()).and_then(Self::all);
 
         let by_author = path!("author" / String)
@@ -82,15 +83,15 @@ impl<D: MeigenDatabase> ApiServer<D> {
     }
 
     async fn recover(rejection: Rejection) -> Result<impl Reply, Rejection> {
-        if let Some(_e) = rejection.find::<RejectionDBError<D::Error>>() {
-            const TEXT: &str = "Internal Server Error (Database Error)";
+        if let Some(e) = rejection.find::<RejectionDBError<D::Error>>() {
+            log::error!("Database connection Error: {:?}", e);
+
+            const TEXT: &str = "Internal Server Error (Failed to communicate with Database)";
             Ok(reply::with_status(TEXT, StatusCode::INTERNAL_SERVER_ERROR))
         //
         } else if let Some(URLDecodeFailed) = rejection.find() {
-            Ok(reply::with_status(
-                "URL decode failed",
-                StatusCode::BAD_REQUEST,
-            ))
+            const TEXT: &str = "Failed to decode URL";
+            Ok(reply::with_status(TEXT, StatusCode::BAD_REQUEST))
         //
         } else {
             Err(rejection)
