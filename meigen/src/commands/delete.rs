@@ -1,12 +1,15 @@
-use crate::commands::{Error, Result};
 use crate::db::MeigenDatabase;
 use crate::message_parser::ParsedMessage;
+use crate::{CommandResult, Error};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-pub async fn delete(db: &Arc<RwLock<impl MeigenDatabase>>, message: ParsedMessage) -> Result {
+pub(crate) async fn delete<D>(db: &Arc<RwLock<D>>, message: ParsedMessage) -> CommandResult<D>
+where
+    D: MeigenDatabase,
+{
     if message.args.is_empty() {
-        return Err(Error::not_enough_args());
+        return Err(Error::NotEnoughArgs);
     }
 
     let id = message
@@ -14,13 +17,16 @@ pub async fn delete(db: &Arc<RwLock<impl MeigenDatabase>>, message: ParsedMessag
         .get(0)
         .unwrap()
         .parse()
-        .map_err(|e| Error::arg_num_parse_fail(1, e))?;
+        .map_err(|e| Error::NumberParseFail {
+            args_index: 1,
+            source: e,
+        })?;
 
     db.write()
         .await
         .delete_meigen(id)
         .await
-        .map_err(Error::save_failed)?;
+        .map_err(Error::DatabaseError)?;
 
     Ok("削除しました".into())
 }

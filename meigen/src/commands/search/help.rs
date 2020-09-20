@@ -1,4 +1,5 @@
-use crate::commands::Result;
+use crate::db::MeigenDatabase;
+use crate::CommandResult;
 
 const HELP_TEXT: &str = "```asciidoc
 = meigen-bot-rust (search help) =
@@ -11,6 +12,9 @@ content :: 名言の内容から検索します
 全ての検索コマンドが部分一致検索です。
 ```";
 
-pub fn help() -> Result {
+pub(crate) fn help<D>() -> CommandResult<D>
+where
+    D: MeigenDatabase,
+{
     Ok(HELP_TEXT.to_string())
 }

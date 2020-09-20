@@ -3,8 +3,7 @@ const FULL_WIDTH_SPACE: char = '　';
 
 const BASE_COMMAND: &str = "g!meigen";
 
-#[readonly::make]
-pub struct ParsedMessage {
+pub(crate) struct ParsedMessage {
     pub sub_command: Option<String>,
     pub raw_content: String,
     pub raw_args: String,
@@ -13,7 +12,7 @@ pub struct ParsedMessage {
 
 // メッセージをパースする。
 // もしこのBotのコマンド呼び出し形式 (g!meigen ...) に一致していなければNone、一致していればSome(ParsedMessage)
-pub fn parse_message(message: &str) -> Option<ParsedMessage> {
+pub(crate) fn parse_message(message: &str) -> Option<ParsedMessage> {
     let content = message.trim().to_string();
 
     let mut splitted = content

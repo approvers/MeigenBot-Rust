@@ -1,30 +1,43 @@
-use crate::commands::{meigen_tidy_format, Error, Result};
+use crate::commands::meigen_tidy_format;
 use crate::db::MeigenDatabase;
 use crate::message_parser::ParsedMessage;
+use crate::{CommandResult, Error};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
 const LIST_MEIGEN_DEFAULT_COUNT: i64 = 5;
 const LIST_MEIGEN_DEFAULT_PAGE: i64 = 1;
 
-pub async fn list(db: &Arc<RwLock<impl MeigenDatabase>>, message: ParsedMessage) -> Result {
+pub(crate) async fn list<D>(db: &Arc<RwLock<D>>, message: ParsedMessage) -> CommandResult<D>
+where
+    D: MeigenDatabase,
+{
     // 表示する数
     let show_count = message
         .args
         .get(0)
         .map_or(Ok(LIST_MEIGEN_DEFAULT_COUNT), |x| x.parse())
-        .map_err(|x| Error::arg_num_parse_fail(1, x))?;
+        .map_err(|x| Error::NumberParseFail {
+            args_index: 1,
+            source: x,
+        })?;
 
     let page = message
         .args
         .get(1)
         .map_or(Ok(LIST_MEIGEN_DEFAULT_PAGE), |x| x.parse())
-        .map_err(|x| Error::arg_num_parse_fail(2, x))?;
+        .map_err(|x| Error::NumberParseFail {
+            args_index: 2,
+            source: x,
+        })?;
 
     listify(&db, show_count, page).await
 }
 
-async fn listify(db: &Arc<RwLock<impl MeigenDatabase>>, show_count: i64, page: i64) -> Result {
+async fn listify<D>(db: &Arc<RwLock<D>>, show_count: i64, page: i64) -> CommandResult<D>
+where
+    D: MeigenDatabase,
+{
     const LIST_MAX_LENGTH: usize = 500;
     const MAX_LENGTH_PER_MEIGEN: usize = 50;
 
@@ -36,20 +49,20 @@ async fn listify(db: &Arc<RwLock<impl MeigenDatabase>>, show_count: i64, page: i
             .await
             .current_meigen_id()
             .await
-            .map_err(Error::load_failed)? as i64
+            .map_err(Error::DatabaseError)? as i64
             + 1;
 
         if meigens_end_index > show_count {
             let from: usize = {
                 (meigens_end_index - show_count - (show_count * (page - 1)))
                     .try_into()
-                    .map_err(Error::num_parse_fail)?
+                    .map_err(|_| Error::ArgsTooBigNumber)?
             };
 
             let to: usize = {
                 (meigens_end_index - (show_count * (page - 1)))
                     .try_into()
-                    .map_err(Error::num_parse_fail)?
+                    .map_err(|_| Error::ArgsTooBigNumber)?
             };
 
             from..to
@@ -69,7 +82,7 @@ async fn listify(db: &Arc<RwLock<impl MeigenDatabase>>, show_count: i64, page: i
         .await
         .get_by_ids(&indexes)
         .await
-        .map_err(Error::load_failed)?;
+        .map_err(Error::DatabaseError)?;
 
     for meigen in &meigens {
         let formatted = meigen_tidy_format(meigen, MAX_LENGTH_PER_MEIGEN);
@@ -77,11 +90,11 @@ async fn listify(db: &Arc<RwLock<impl MeigenDatabase>>, show_count: i64, page: i
     }
 
     if result.is_empty() {
-        return Err(Error::no_meigen_matches());
+        return Err(Error::NoMeigenHit);
     }
 
     if result.chars().count() >= LIST_MAX_LENGTH {
-        return Err(Error::too_many_meigen_matches());
+        return Err(Error::TooManyMeigenHit);
     }
 
     Ok(result)

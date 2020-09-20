@@ -1,35 +1,48 @@
-use crate::db::{MeigenDatabase, MeigenEntry, RegisteredMeigen};
-use crate::make_error_enum;
-use serde::{Deserialize, Serialize};
-use std::path::Path;
+#![allow(dead_code)]
 
-use tokio::fs::{self, File};
-use tokio::prelude::*;
+use crate::db::{MeigenDatabase, MeigenEntry, RegisteredMeigen};
 
 use async_trait::async_trait;
+use serde::{Deserialize, Serialize};
+use serde_yaml::Error as SerdeYamlError;
+use std::path::Path;
+use thiserror::Error;
+use tokio::fs::{self, File};
+use tokio::io::Error as TokioIOError;
+use tokio::prelude::*;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct FileDB {
     #[serde(skip)]
     path: String,
 
     current_id: u32,
     meigens: Vec<RegisteredMeigen>,
-    blacklist: Vec<String>,
 }
 
-make_error_enum! {
-    FileDBError;
-    SaveConfigFailed save(e) => "保存に失敗しました: {}",
-    OpenConfigFailed open(e) => "ファイルを開けませんでした: {}",
-    CreateConfigFailed create(e) => "ファイル作成に失敗しました: {}",
-    DeleteConfigFailed delete(e) => "ファイル削除に失敗しました: {}",
+#[derive(Debug, Error)]
+pub enum FileDBError {
+    #[error("ファイルを開くのに失敗しました")]
+    FileOpenError(TokioIOError),
 
-    ConfigAlreadyExist already_exist() => "Configファイルがすでに存在します",
-    MeigenNotFound nf(id) => "ID{}を持つ名言は存在しません",
+    #[error("ファイルの削除に失敗しました")]
+    FileDeleteError(TokioIOError),
 
-    SerializeFailed serialize(e) => "Serializeに失敗しました: {}",
-    DeserializeFailed deserialize(e) => "Deserializeに失敗しました: {}",
+    #[error("ファイルの作成に失敗しました")]
+    FileCreateError(TokioIOError),
+
+    #[error("ファイルの保存に失敗しました")]
+    FileSaveError(TokioIOError),
+
+    #[error("データベースファイルのシリアライズに失敗しました")]
+    SerializeError(SerdeYamlError),
+
+    #[error("データベースファイルのデシリアライズに失敗しました")]
+    DeserializeError(SerdeYamlError),
+
+    #[error("削除要求された名言(id: {id})は見つかりませんでした")]
+    DeleteTargetNotFound { id: u32 },
 }
 
 impl FileDB {
@@ -38,39 +51,40 @@ impl FileDB {
             path: path.to_string(),
             current_id: 0,
             meigens: vec![],
-            blacklist: vec![],
         }
     }
 
     pub async fn load(path: &str) -> Result<Self, FileDBError> {
-        let mut file = File::open(path).await.map_err(FileDBError::open)?;
+        let mut file = File::open(path).await.map_err(FileDBError::FileOpenError)?;
 
         let mut content = String::new();
         file.read_to_string(&mut content)
             .await
-            .map_err(FileDBError::open)?;
+            .map_err(FileDBError::FileOpenError)?;
 
-        let mut deserialized: FileDB =
-            serde_yaml::from_str(&content).map_err(FileDBError::deserialize)?;
+        let mut deserialized =
+            serde_yaml::from_str::<FileDB>(&content).map_err(FileDBError::DeserializeError)?;
         deserialized.path = path.into();
 
         Ok(deserialized)
     }
 
     pub async fn save(&self) -> Result<(), FileDBError> {
-        let serialized = serde_yaml::to_string(self).map_err(FileDBError::serialize)?;
+        let serialized = serde_yaml::to_string(self).map_err(FileDBError::SerializeError)?;
 
         let path = Path::new(&self.path);
         if path.exists() {
-            fs::remove_file(path).await.map_err(FileDBError::delete)?;
+            fs::remove_file(path)
+                .await
+                .map_err(FileDBError::FileDeleteError)?;
         }
 
         File::create(path)
             .await
-            .map_err(FileDBError::create)?
+            .map_err(FileDBError::FileCreateError)?
             .write_all(serialized.as_bytes())
             .await
-            .map_err(FileDBError::save)
+            .map_err(FileDBError::FileSaveError)
     }
 }
 
@@ -100,7 +114,7 @@ impl MeigenDatabase for FileDB {
             .meigens
             .iter()
             .position(|x| x.id == id)
-            .ok_or_else(|| FileDBError::nf(id))?;
+            .ok_or_else(|| FileDBError::DeleteTargetNotFound { id })?;
 
         self.meigens.remove(index);
         self.save().await
@@ -129,12 +143,10 @@ impl MeigenDatabase for FileDB {
     }
 
     // idから名言取得
-    async fn get_by_id(&self, id: u32) -> Result<RegisteredMeigen, Self::Error> {
-        self.meigens
-            .iter()
-            .find(|x| x.id == id)
-            .ok_or_else(|| FileDBError::nf(id))
-            .map(|x| x.clone())
+    async fn get_by_id(&self, id: u32) -> Result<Option<RegisteredMeigen>, Self::Error> {
+        let result = self.meigens.iter().find(|x| x.id == id).map(|x| x.clone());
+
+        Ok(result)
     }
 
     // idから名言取得(複数指定) 一致するIDの名言がなかった場合はスキップする

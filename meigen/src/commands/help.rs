@@ -1,4 +1,5 @@
-use crate::commands::Result;
+use crate::db::MeigenDatabase;
+use crate::CommandResult;
 
 const HELP_TEXT: &str = "```asciidoc
 = meigen-bot-rust =
@@ -15,6 +16,9 @@ g!meigen [subcommand] [args...]
     delete [名言ID]                         :: 指定されたIDの名言を削除します かわえもんにしか使えません
 ```";
 
-pub fn help() -> Result {
+pub(crate) fn help<D>() -> CommandResult<D>
+where
+    D: MeigenDatabase,
+{
     Ok(HELP_TEXT.to_string())
 }

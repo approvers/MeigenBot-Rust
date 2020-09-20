@@ -1,16 +1,17 @@
 use crate::commands::meigen_format;
-use crate::commands::{Error, Result};
 use crate::db::MeigenDatabase;
 use crate::db::MeigenEntry;
 use crate::message_parser::ParsedMessage;
+use crate::{CommandResult, Error};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use log::error;
-
-pub async fn make(db: &Arc<RwLock<impl MeigenDatabase>>, message: ParsedMessage) -> Result {
+pub(crate) async fn make<D>(db: &Arc<RwLock<D>>, message: ParsedMessage) -> CommandResult<D>
+where
+    D: MeigenDatabase,
+{
     if message.args.len() <= 1 {
-        return Err(Error::not_enough_args());
+        return Err(Error::NotEnoughArgs);
     }
 
     let author = message.args.get(0).unwrap().clone();
@@ -30,7 +31,7 @@ pub async fn make(db: &Arc<RwLock<impl MeigenDatabase>>, message: ParsedMessage)
         use crate::db::MeigenError;
         match err {
             MeigenError::TooLongMeigen { actual_size, limit } => {
-                Error::too_long_meigen(actual_size, limit)
+                Error::TooLongMeigen { actual_size, limit }
             }
         }
     })?;
@@ -40,10 +41,7 @@ pub async fn make(db: &Arc<RwLock<impl MeigenDatabase>>, message: ParsedMessage)
         .await
         .save_meigen(new_meigen_entry)
         .await
-        .map_err(|err| {
-            error!("ファイル保存に失敗: {}", err);
-            Error::save_failed(err)
-        })?;
+        .map_err(Error::DatabaseError)?;
 
     let mut message = String::new();
     message += &checked_result.format();
