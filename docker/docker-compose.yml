@@ -1,0 +1,21 @@
+version: "3"
+services:
+  mongo:
+    restart: always
+    build:
+      context: .
+      dockerfile: ./Dockerfile-Mongo
+    volumes:
+      - ./mongo_db:/data/db
+    ports:
+      - 27017:27017
+
+  meigen-rust:
+    restart: always
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile-Rust
+    entrypoint: /usr/local/bin/meigenbot-rust mongo mongodb://mongo
+    env_file: .env
+    depends_on:
+      - mongo

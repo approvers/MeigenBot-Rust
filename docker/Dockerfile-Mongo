@@ -1,0 +1,2 @@
+FROM mongo 
+ADD ./InitMongo.js /docker-entrypoint-initdb.d/
