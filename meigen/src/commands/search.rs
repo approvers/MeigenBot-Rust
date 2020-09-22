@@ -18,7 +18,7 @@ const AUTHOR_SEARCH_COMMAND: &str = "author";
 const WORD_SEARCH_COMMAND: &str = "content";
 const SEARCH_HELP_COMMAND: &str = "help";
 
-pub(crate) async fn search<D>(db: &Arc<RwLock<D>>, message: ParsedMessage) -> CommandResult
+pub(crate) async fn search<D>(db: &Arc<RwLock<D>>, message: ParsedMessage) -> CommandResult<D>
 where
     D: MeigenDatabase,
 {
@@ -58,7 +58,10 @@ where
     }
 }
 
-fn listify(slice: &[RegisteredMeigen], show_count: i32, page: i32) -> CommandResult {
+fn listify<D>(slice: &[RegisteredMeigen], show_count: i32, page: i32) -> CommandResult<D>
+where
+    D: MeigenDatabase,
+{
     const LIST_MAX_LENGTH: usize = 500;
     const MAX_LENGTH_PER_MEIGEN: usize = 50;
 

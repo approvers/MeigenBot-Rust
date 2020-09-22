@@ -9,7 +9,7 @@ pub(crate) async fn content<D>(
     target_content: &str,
     show_count: i32,
     page_num: i32,
-) -> CommandResult
+) -> CommandResult<D>
 where
     D: MeigenDatabase,
 {
@@ -18,7 +18,7 @@ where
         .await
         .search_by_content(target_content)
         .await
-        .map_err(|x| Error::DatabaseError(Box::new(x)))?;
+        .map_err(Error::DatabaseError)?;
 
-    listify(&meigens, show_count, page_num)
+    listify::<D>(&meigens, show_count, page_num)
 }

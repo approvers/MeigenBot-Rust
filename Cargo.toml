@@ -1,3 +1,3 @@
 [workspace]
 
-members = ["discord_bot", "meigen", "interface"]
+members = ["bot_core", "meigen", "interface"]

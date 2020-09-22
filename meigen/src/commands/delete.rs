@@ -4,7 +4,7 @@ use crate::{CommandResult, Error};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-pub(crate) async fn delete<D>(db: &Arc<RwLock<D>>, message: ParsedMessage) -> CommandResult
+pub(crate) async fn delete<D>(db: &Arc<RwLock<D>>, message: ParsedMessage) -> CommandResult<D>
 where
     D: MeigenDatabase,
 {
@@ -26,7 +26,7 @@ where
         .await
         .delete_meigen(id)
         .await
-        .map_err(|x| Error::DatabaseError(Box::new(x)))?;
+        .map_err(Error::DatabaseError)?;
 
     Ok("削除しました".into())
 }

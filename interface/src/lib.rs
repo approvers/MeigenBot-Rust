@@ -1,10 +1,5 @@
 use async_trait::async_trait;
 
-pub struct FileEntry {
-    pub name: String,
-    pub data: Vec<u8>,
-}
-
 pub enum TextBotResult<E>
 where
     E: std::error::Error + std::fmt::Display + std::fmt::Debug + Send + Sync + 'static,
@@ -13,9 +8,6 @@ where
     Ok {
         // 返すべきメッセージ
         msg: String,
-
-        // ファイル
-        files: Option<Vec<FileEntry>>,
     },
 
     // 正常に処理されたが処理すべきメッセージではなかった

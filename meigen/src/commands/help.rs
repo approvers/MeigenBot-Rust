@@ -1,3 +1,4 @@
+use crate::db::MeigenDatabase;
 use crate::CommandResult;
 
 const HELP_TEXT: &str = "```asciidoc
@@ -13,9 +14,11 @@ g!meigen [subcommand] [args...]
     random [表示数=1]                       :: ランダムに名言を出します
     status                                 :: 現在登録されてる名言の数を出します
     delete [名言ID]                         :: 指定されたIDの名言を削除します かわえもんにしか使えません
-    export [json/yaml]                     :: jsonかyaml形式で全ての名言を出力します
 ```";
 
-pub(crate) fn help() -> CommandResult {
+pub(crate) fn help<D>() -> CommandResult<D>
+where
+    D: MeigenDatabase,
+{
     Ok(HELP_TEXT.to_string())
 }

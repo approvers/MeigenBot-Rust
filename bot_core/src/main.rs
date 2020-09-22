@@ -4,13 +4,11 @@ use anyhow::Error;
 use anyhow::{anyhow, Context as _, Result};
 use async_trait::async_trait;
 use serenity::client::Client;
-use serenity::http::AttachmentType;
 use serenity::http::Http;
 use serenity::model::channel::Message;
 use serenity::model::gateway::Ready;
 use serenity::model::id::ChannelId;
 use serenity::prelude::{Context, EventHandler};
-use std::borrow::Cow;
 use std::env;
 use std::fmt::Display;
 use std::path::Path;
@@ -21,7 +19,7 @@ use meigen::db::mongodb::MongoDB;
 use meigen::db::MeigenDatabase;
 use meigen::MeigenBot;
 
-use interface::{FileEntry, TextBot, TextBotResult, TextMessage};
+use interface::{TextBot, TextBotResult, TextMessage};
 
 const KAWAEMON_ID: u64 = 391857452360007680;
 
@@ -112,14 +110,11 @@ impl<D: MeigenDatabase> EventHandler for BotEvHandler<D> {
         let result = self.meigen.on_message(text_message).await;
 
         match result {
-            TextBotResult::Ok {
-                msg: send_message,
-                files,
-            } => say(msg.channel_id, &ctx.http, send_message, files).await,
-
-            TextBotResult::ExpectedError(e) => {
-                say(msg.channel_id, &ctx.http, Error::new(e), None).await
+            TextBotResult::Ok { msg: send_message } => {
+                say(msg.channel_id, &ctx.http, send_message).await
             }
+
+            TextBotResult::ExpectedError(e) => say(msg.channel_id, &ctx.http, Error::new(e)).await,
 
             TextBotResult::UnexpectedError(e) => {
                 let send_message = format!(
@@ -128,7 +123,7 @@ impl<D: MeigenDatabase> EventHandler for BotEvHandler<D> {
                     Error::new(e)
                 );
 
-                say(msg.channel_id, &ctx.http, send_message, None).await
+                say(msg.channel_id, &ctx.http, send_message).await
             }
 
             TextBotResult::NotMatch => {}
@@ -140,28 +135,8 @@ impl<D: MeigenDatabase> EventHandler for BotEvHandler<D> {
     }
 }
 
-async fn say(
-    channel_id: ChannelId,
-    http: &Arc<Http>,
-    msg: impl Display,
-    files: Option<Vec<FileEntry>>,
-) {
-    let result = match files {
-        Some(mut files) => {
-            let files = files.drain(..).map(|x| AttachmentType::Bytes {
-                data: Cow::from(x.data),
-                filename: x.name,
-            });
-
-            channel_id
-                .send_files(&http, files, |e| e.content(msg))
-                .await
-        }
-
-        None => channel_id.say(&http, msg).await,
-    };
-
-    if let Err(e) = result {
+async fn say(channel_id: ChannelId, http: &Arc<Http>, msg: impl Display) {
+    if let Err(e) = channel_id.say(&http, msg).await {
         log::warn!(
             "{:?}",
             anyhow::Error::new(e).context("Failed to send message to discord")
