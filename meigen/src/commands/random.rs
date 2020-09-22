@@ -6,7 +6,7 @@ use crate::{CommandResult, Error};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-pub(crate) async fn random<D>(db: &Arc<RwLock<D>>, message: ParsedMessage) -> CommandResult<D>
+pub(crate) async fn random<D>(db: &Arc<RwLock<D>>, message: ParsedMessage) -> CommandResult
 where
     D: MeigenDatabase,
 {
@@ -26,7 +26,7 @@ where
         .await
         .current_meigen_id()
         .await
-        .map_err(Error::DatabaseError)? as u32;
+        .map_err(|x| Error::DatabaseError(Box::new(x)))? as u32;
 
     let rands = gen_rand_vec(count, 0, meigen_count);
 
@@ -35,7 +35,7 @@ where
         .await
         .get_by_ids(&rands)
         .await
-        .map_err(Error::DatabaseError)?;
+        .map_err(|x| Error::DatabaseError(Box::new(x)))?;
 
     local_listify::<D>(&meigens)
 }
@@ -52,7 +52,7 @@ fn gen_rand_vec(count: usize, range_from: u32, range_to: u32) -> Vec<u32> {
     result
 }
 
-fn local_listify<D>(list: &[RegisteredMeigen]) -> CommandResult<D>
+fn local_listify<D>(list: &[RegisteredMeigen]) -> CommandResult
 where
     D: MeigenDatabase,
 {

@@ -1,5 +1,5 @@
 [package]
-name = "bot_core"
+name = "discord_bot"
 version = "0.1.0"
 authors = ["kawaemon <34652535+kawaemon@users.noreply.github.com>"]
 edition = "2018"

@@ -6,7 +6,7 @@ use crate::{CommandResult, Error};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-pub(crate) async fn make<D>(db: &Arc<RwLock<D>>, message: ParsedMessage) -> CommandResult<D>
+pub(crate) async fn make<D>(db: &Arc<RwLock<D>>, message: ParsedMessage) -> CommandResult
 where
     D: MeigenDatabase,
 {
@@ -41,7 +41,7 @@ where
         .await
         .save_meigen(new_meigen_entry)
         .await
-        .map_err(Error::DatabaseError)?;
+        .map_err(|x| Error::DatabaseError(Box::new(x)))?;
 
     let mut message = String::new();
     message += &checked_result.format();

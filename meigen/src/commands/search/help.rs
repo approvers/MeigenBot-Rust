@@ -12,7 +12,7 @@ content :: 名言の内容から検索します
 全ての検索コマンドが部分一致検索です。
 ```";
 
-pub(crate) fn help<D>() -> CommandResult<D>
+pub(crate) fn help<D>() -> CommandResult
 where
     D: MeigenDatabase,
 {

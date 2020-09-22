@@ -8,7 +8,7 @@ use tokio::sync::RwLock;
 const LIST_MEIGEN_DEFAULT_COUNT: i64 = 5;
 const LIST_MEIGEN_DEFAULT_PAGE: i64 = 1;
 
-pub(crate) async fn list<D>(db: &Arc<RwLock<D>>, message: ParsedMessage) -> CommandResult<D>
+pub(crate) async fn list<D>(db: &Arc<RwLock<D>>, message: ParsedMessage) -> CommandResult
 where
     D: MeigenDatabase,
 {
@@ -34,7 +34,7 @@ where
     listify(&db, show_count, page).await
 }
 
-async fn listify<D>(db: &Arc<RwLock<D>>, show_count: i64, page: i64) -> CommandResult<D>
+async fn listify<D>(db: &Arc<RwLock<D>>, show_count: i64, page: i64) -> CommandResult
 where
     D: MeigenDatabase,
 {
@@ -49,7 +49,7 @@ where
             .await
             .current_meigen_id()
             .await
-            .map_err(Error::DatabaseError)? as i64
+            .map_err(|x| Error::DatabaseError(Box::new(x)))? as i64
             + 1;
 
         if meigens_end_index > show_count {
@@ -82,7 +82,7 @@ where
         .await
         .get_by_ids(&indexes)
         .await
-        .map_err(Error::DatabaseError)?;
+        .map_err(|x| Error::DatabaseError(Box::new(x)))?;
 
     for meigen in &meigens {
         let formatted = meigen_tidy_format(meigen, MAX_LENGTH_PER_MEIGEN);

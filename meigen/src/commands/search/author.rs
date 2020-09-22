@@ -9,7 +9,7 @@ pub(crate) async fn author<D>(
     target_author: &str,
     show_count: i32,
     page_num: i32,
-) -> CommandResult<D>
+) -> CommandResult
 where
     D: MeigenDatabase,
 {
@@ -18,7 +18,7 @@ where
         .await
         .search_by_author(target_author)
         .await
-        .map_err(Error::DatabaseError)?;
+        .map_err(|x| Error::DatabaseError(Box::new(x)))?;
 
-    listify::<D>(&meigens, show_count, page_num)
+    listify(&meigens, show_count, page_num)
 }
