@@ -35,7 +35,7 @@ where
 {
     let mut mode = ExportFormat::Json;
 
-    if message.args.len() >= 1 {
+    if !message.args.is_empty() {
         match message.args[0].to_lowercase().as_str() {
             "json" => mode = ExportFormat::Json,
             "yaml" => mode = ExportFormat::Yaml,

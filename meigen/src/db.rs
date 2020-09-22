@@ -6,6 +6,7 @@ use std::fmt::Display;
 pub mod filedb;
 pub mod mongodb;
 
+#[allow(clippy::len_without_is_empty)]
 #[async_trait]
 pub trait MeigenDatabase: Send + Sync + Clone + 'static {
     type Error: Error + Display + Send + Sync + 'static;
