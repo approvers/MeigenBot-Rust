@@ -12,7 +12,6 @@ use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
 use tokio::sync::RwLock;
 
-mod api;
 mod cli;
 mod command_registry;
 mod commands;
@@ -54,12 +53,12 @@ impl EventHandler for BotEvHandler {
 }
 
 fn main() {
-    simple_logger::init_with_level(log::Level::Info).unwrap();
+    pretty_env_logger::init();
 
     tokio::runtime::Builder::new()
         .enable_time()
         .enable_io()
-        .threaded_scheduler()
+        .basic_scheduler()
         .build()
         .expect("Failed to build tokio runtime.")
         .block_on(async_main());
@@ -72,10 +71,6 @@ async fn async_main() {
     };
 
     let token = env::var("DISCORD_TOKEN").expect("Set DISCORD_TOKEN");
-    let port = env::var("PORT")
-        .expect("Set PORT for api server")
-        .parse()
-        .expect("PORT variable is not collect value. expected u16.");
     let admin_id = env::var("ADMIN_DISCORD_ID")
         .expect("Set admin discord id")
         .parse()
@@ -87,23 +82,20 @@ async fn async_main() {
             let db = FileDB::load(&options.dest)
                 .await
                 .expect("Open database file failed");
-            main_routine(token, port, db, admin_ids).await
+            start(token, db, admin_ids).await
         }
 
         Database::Mongo => {
             let db = MongoDB::new(&options.dest)
                 .await
                 .expect("Connect to mongo db failed");
-            main_routine(token, port, db, admin_ids).await
+            start(token, db, admin_ids).await
         }
     };
 }
 
-async fn main_routine(token: String, port: u16, db: impl MeigenDatabase, admin_id: &[u64]) {
+async fn start(token: String, db: impl MeigenDatabase, admin_id: &[u64]) {
     let db = Arc::new(RwLock::new(db));
-
-    info!("Starting Api server at 127.0.0.1:{}", port);
-    tokio::spawn(api::launch(([127, 0, 0, 1], port), Arc::clone(&db)));
 
     let (tx, rx) = mpsc::channel();
     let handler = BotEvHandler {
@@ -111,7 +103,7 @@ async fn main_routine(token: String, port: u16, db: impl MeigenDatabase, admin_i
     };
 
     tokio::spawn(async {
-        Client::new(token)
+        Client::builder(token)
             .event_handler(handler)
             .await
             .expect("Initializing serenity failed.")
