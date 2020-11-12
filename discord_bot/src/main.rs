@@ -1,26 +1,23 @@
 #![allow(dead_code)]
 #![deny(clippy::all)]
 
-use log::{error, info};
 use serenity::async_trait;
 use serenity::client::Client;
 use serenity::model::channel::Message;
 use serenity::model::gateway::Ready;
 use serenity::prelude::{Context, EventHandler};
 use std::env;
-use std::sync::mpsc;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+use std::time::Instant;
 use tokio::sync::RwLock;
 
 mod command_registry;
 mod commands;
 mod message_parser;
-mod report;
 
 use command_registry::call_command;
 use db::{filedb::FileDB, mongodb::MongoDB, MeigenDatabase};
 use message_parser::parse_message;
-use report::with_time_report_async;
 
 #[macro_export]
 macro_rules! make_error_enum {
@@ -48,27 +45,37 @@ macro_rules! make_error_enum {
     };
 }
 
-enum ClientEvent {
-    OnReady(Context),
-    OnMessage(Box<Message>),
-}
-
-struct BotEvHandler {
-    channel: Mutex<mpsc::Sender<ClientEvent>>,
+struct BotEvHandler<D: MeigenDatabase> {
+    db: Arc<RwLock<D>>,
+    admin_id: Vec<u64>,
 }
 
 #[async_trait]
-impl EventHandler for BotEvHandler {
-    async fn message(&self, _: Context, new_message: Message) {
-        let event = ClientEvent::OnMessage(Box::new(new_message));
+impl<D> EventHandler for BotEvHandler<D>
+where
+    D: MeigenDatabase,
+{
+    async fn message(&self, ctx: Context, msg: Message) {
+        if let Some(parsed_msg) = parse_message(&msg.content) {
+            let is_admin = self.admin_id.iter().any(|x| *x == msg.author.id.0);
 
-        self.channel.lock().unwrap().send(event).unwrap();
+            let begin = Instant::now();
+            let cmd_result = call_command(&self.db, parsed_msg, is_admin).await;
+            log::info!("\"{}\" took {}ms", msg.content, begin.elapsed().as_millis());
+
+            let message = match cmd_result {
+                Ok(r) => r,
+                Err(e) => e.to_string(),
+            };
+
+            if let Err(e) = msg.channel_id.say(&ctx.http, &message).await {
+                log::error!("Failed to send message \"{}\"\n{}", &message, e);
+            }
+        }
     }
 
-    async fn ready(&self, ctx: Context, _data_about_bot: Ready) {
-        let event = ClientEvent::OnReady(ctx);
-
-        self.channel.lock().unwrap().send(event).unwrap();
+    async fn ready(&self, _: Context, _: Ready) {
+        log::info!("Discord bot is ready!");
     }
 }
 
@@ -92,7 +99,7 @@ async fn async_main() {
         .expect("Set admin discord id")
         .parse()
         .expect("Invalid admin discord id.");
-    let admin_ids = &[admin_id];
+    let admin_ids = vec![admin_id];
 
     match db.as_str() {
         "FILE" => {
@@ -113,56 +120,14 @@ async fn async_main() {
     };
 }
 
-async fn start(token: String, db: impl MeigenDatabase, admin_id: &[u64]) {
+async fn start(token: String, db: impl MeigenDatabase, admin_id: Vec<u64>) {
     let db = Arc::new(RwLock::new(db));
 
-    let (tx, rx) = mpsc::channel();
-    let handler = BotEvHandler {
-        channel: Mutex::new(tx),
-    };
-
-    tokio::spawn(async {
-        Client::builder(token)
-            .event_handler(handler)
-            .await
-            .expect("Initializing serenity failed.")
-            .start()
-            .await
-            .expect("Serenity returns unknown error.");
-    });
-
-    let mut context = None;
-    for event in rx {
-        match event {
-            ClientEvent::OnReady(ctx) => {
-                info!("Discord Bot is ready!");
-                context = Some(ctx);
-            }
-
-            ClientEvent::OnMessage(msg) => {
-                if let Some(parsed_msg) = parse_message(&msg) {
-                    let ctx = context.as_ref().expect("event was called before ready");
-                    let is_admin = admin_id.iter().any(|x| *x == msg.author.id.0);
-
-                    let cmd_result = with_time_report_async(
-                        call_command(&db, parsed_msg, is_admin),
-                        |r| match r.as_ref() {
-                            Ok(_) => format!("\"{}\" was ok", &msg.content),
-                            Err(e) => format!("\"{}\" was not ok: {:?}", &msg.content, &e),
-                        },
-                    )
-                    .await;
-
-                    let message = match cmd_result {
-                        Ok(r) => r,
-                        Err(e) => e.to_string(),
-                    };
-
-                    if let Err(e) = msg.channel_id.say(&ctx.http, &message).await {
-                        error!("Failed to send message \"{}\"\n{}", &message, e);
-                    }
-                }
-            }
-        }
-    }
+    Client::builder(token)
+        .event_handler(BotEvHandler { db, admin_id })
+        .await
+        .expect("Initializing serenity failed.")
+        .start()
+        .await
+        .expect("Serenity returns unknown error.");
 }

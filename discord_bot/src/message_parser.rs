@@ -1,5 +1,3 @@
-use serenity::model::channel::Message;
-
 const SPACE: char = ' ';
 const FULL_WIDTH_SPACE: char = '　';
 
@@ -14,8 +12,8 @@ pub struct ParsedMessage {
 
 // メッセージをパースする。
 // もしこのBotのコマンド呼び出し形式 (g!meigen ...) に一致していなければNone、一致していればSome(ParsedMessage)
-pub fn parse_message(message: &Message) -> Option<ParsedMessage> {
-    let content = message.content.trim().to_string();
+pub fn parse_message(message: &str) -> Option<ParsedMessage> {
+    let content = message.trim().to_string();
 
     let mut splitted = content
         .split(SPACE)
