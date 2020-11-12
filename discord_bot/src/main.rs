@@ -12,17 +12,13 @@ use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
 use tokio::sync::RwLock;
 
-mod cli;
 mod command_registry;
 mod commands;
 mod message_parser;
 mod report;
 
-use cli::Database;
 use command_registry::call_command;
-use db::filedb::FileDB;
-use db::mongodb::MongoDB;
-use db::MeigenDatabase;
+use db::{filedb::FileDB, mongodb::MongoDB, MeigenDatabase};
 use message_parser::parse_message;
 use report::with_time_report_async;
 
@@ -89,11 +85,8 @@ fn main() {
 }
 
 async fn async_main() {
-    let options = match cli::parse() {
-        Some(t) => t,
-        None => return,
-    };
-
+    let db = env::var("DB_TYPE").expect("Set DB_TYPE to either MONGO or FILE");
+    let dest = env::var("DB_DEST").expect("Set DB_DESt");
     let token = env::var("DISCORD_TOKEN").expect("Set DISCORD_TOKEN");
     let admin_id = env::var("ADMIN_DISCORD_ID")
         .expect("Set admin discord id")
@@ -101,20 +94,22 @@ async fn async_main() {
         .expect("Invalid admin discord id.");
     let admin_ids = &[admin_id];
 
-    match options.database {
-        Database::File => {
-            let db = FileDB::load(&options.dest)
+    match db.as_str() {
+        "FILE" => {
+            let db = FileDB::load(&dest)
                 .await
-                .expect("Open database file failed");
+                .expect("Failed to open database file");
             start(token, db, admin_ids).await
         }
 
-        Database::Mongo => {
-            let db = MongoDB::new(&options.dest)
+        "MONGO" => {
+            let db = MongoDB::new(&dest)
                 .await
-                .expect("Connect to mongo db failed");
+                .expect("Failed to connect to mongo db");
             start(token, db, admin_ids).await
         }
+
+        _ => panic!("Set DB_TYPE to either MONGO or FILE"),
     };
 }
 
