@@ -8,8 +8,13 @@ edition = "2018"
 
 [dependencies]
 db = { path = "../db" }
-serenity = "0.9.1"
 log = "0.4.11"
 tokio = { version = "0.2.22", features = ["full"] }
 rand = "0.7.3"
 pretty_env_logger = "0.4.0"
+
+[dependencies.serenity]
+git = "https://github.com/serenity-rs/serenity"
+branch = "next"
+default-features = false
+features = ["rustls_backend", "cache", "client", "gateway", "model"]

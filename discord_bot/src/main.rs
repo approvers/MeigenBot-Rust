@@ -1,3 +1,4 @@
+#![type_length_limit = "1259894"]
 #![allow(dead_code)]
 #![deny(clippy::all)]
 
@@ -93,10 +94,10 @@ fn main() {
 
 async fn async_main() {
     let db = env::var("DB_TYPE").expect("Set DB_TYPE to either MONGO or FILE");
-    let dest = env::var("DB_DEST").expect("Set DB_DESt");
+    let dest = env::var("DB_DEST").expect("Set DB_DEST");
     let token = env::var("DISCORD_TOKEN").expect("Set DISCORD_TOKEN");
     let admin_id = env::var("ADMIN_DISCORD_ID")
-        .expect("Set admin discord id")
+        .expect("Set ADMIN_DISCORD_ID")
         .parse()
         .expect("Invalid admin discord id.");
     let admin_ids = vec![admin_id];
