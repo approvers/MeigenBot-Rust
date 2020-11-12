@@ -40,7 +40,7 @@ crate::make_error_enum! {
 
 // util
 
-use crate::db::RegisteredMeigen;
+use db::RegisteredMeigen;
 
 fn internal_format(id: u32, author: &str, content: &str) -> String {
     format!(

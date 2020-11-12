@@ -1,7 +1,7 @@
-use crate::db::{MeigenDatabase, MeigenEntry, RegisteredMeigen};
+use crate::{MeigenDatabase, MeigenEntry, RegisteredMeigen};
 use async_trait::async_trait;
 use log::info;
-use mongodb::bson::{doc, Bson, Document};
+use mongodb::bson::{self, doc, Bson, Document};
 use mongodb::event::cmap::{CmapEventHandler, ConnectionClosedEvent, ConnectionCreatedEvent};
 use mongodb::options::ClientOptions;
 use mongodb::{Client, Collection};

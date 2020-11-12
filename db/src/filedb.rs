@@ -1,12 +1,10 @@
-use crate::db::{MeigenDatabase, MeigenEntry, RegisteredMeigen};
 use crate::make_error_enum;
+use crate::{MeigenDatabase, MeigenEntry, RegisteredMeigen};
+use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
-
 use tokio::fs::{self, File};
 use tokio::prelude::*;
-
-use async_trait::async_trait;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FileDB {

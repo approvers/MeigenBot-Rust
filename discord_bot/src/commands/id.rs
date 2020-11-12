@@ -1,7 +1,7 @@
 use crate::commands::meigen_format;
 use crate::commands::{Error, Result};
-use crate::db::MeigenDatabase;
 use crate::message_parser::ParsedMessage;
+use db::MeigenDatabase;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 

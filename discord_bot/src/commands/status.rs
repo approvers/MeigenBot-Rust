@@ -1,6 +1,6 @@
 use crate::commands::Error;
 use crate::commands::Result;
-use crate::db::MeigenDatabase;
+use db::MeigenDatabase;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 

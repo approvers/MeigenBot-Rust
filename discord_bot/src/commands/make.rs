@@ -1,8 +1,7 @@
 use crate::commands::meigen_format;
 use crate::commands::{Error, Result};
-use crate::db::MeigenDatabase;
-use crate::db::MeigenEntry;
 use crate::message_parser::ParsedMessage;
+use db::{MeigenDatabase, MeigenEntry, MeigenError};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -26,12 +25,9 @@ pub async fn make(db: &Arc<RwLock<impl MeigenDatabase>>, message: ParsedMessage)
         strip_meigen(content.trim())
     };
 
-    let new_meigen_entry = MeigenEntry::new(author, content).map_err(|err| {
-        use crate::db::MeigenError;
-        match err {
-            MeigenError::TooLongMeigen { actual_size, limit } => {
-                Error::too_long_meigen(actual_size, limit)
-            }
+    let new_meigen_entry = MeigenEntry::new(author, content).map_err(|err| match err {
+        MeigenError::TooLongMeigen { actual_size, limit } => {
+            Error::too_long_meigen(actual_size, limit)
         }
     })?;
 

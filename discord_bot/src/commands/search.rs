@@ -7,8 +7,8 @@ pub use content::content;
 pub use help::help;
 
 use crate::commands::{meigen_tidy_format, Error, Result};
-use crate::db::{MeigenDatabase, RegisteredMeigen};
 use crate::message_parser::ParsedMessage;
+use db::{MeigenDatabase, RegisteredMeigen};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 

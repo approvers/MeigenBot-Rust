@@ -1,7 +1,6 @@
 use crate::commands::{Error, Result};
-use crate::db::MeigenDatabase;
-use crate::db::RegisteredMeigen;
 use crate::message_parser::ParsedMessage;
+use db::{MeigenDatabase, RegisteredMeigen};
 use rand::Rng;
 use std::sync::Arc;
 use tokio::sync::RwLock;

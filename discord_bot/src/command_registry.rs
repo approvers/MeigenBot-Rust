@@ -1,7 +1,7 @@
 use crate::commands;
 use crate::commands::Error;
-use crate::db::MeigenDatabase;
 use crate::message_parser;
+use db::MeigenDatabase;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 

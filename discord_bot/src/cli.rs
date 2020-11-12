@@ -1,4 +1,3 @@
-#[readonly::make]
 #[derive(Debug)]
 pub struct CliOptions {
     pub database: Database,

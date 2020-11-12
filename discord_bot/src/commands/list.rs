@@ -1,5 +1,5 @@
 use crate::commands::{meigen_tidy_format, Error, Result};
-use crate::db::MeigenDatabase;
+use db::MeigenDatabase;
 use crate::message_parser::ParsedMessage;
 use std::sync::Arc;
 use tokio::sync::RwLock;
