@@ -48,7 +48,7 @@ pub trait MeigenDatabase: Send + Sync + Clone + 'static {
     async fn search_by_content(&self, content: &str) -> Result<Vec<RegisteredMeigen>, Self::Error>;
 
     // idから名言取得
-    async fn get_by_id(&self, id: u32) -> Result<RegisteredMeigen, Self::Error>;
+    async fn get_by_id(&self, id: u32) -> Result<Option<RegisteredMeigen>, Self::Error>;
 
     // idから名言取得(複数指定) 一致するIDの名言がなかった場合はスキップする
     async fn get_by_ids(&self, ids: &[u32]) -> Result<Vec<RegisteredMeigen>, Self::Error>;

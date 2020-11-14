@@ -127,12 +127,8 @@ impl MeigenDatabase for FileDB {
     }
 
     // idから名言取得
-    async fn get_by_id(&self, id: u32) -> Result<RegisteredMeigen, Self::Error> {
-        self.meigens
-            .iter()
-            .find(|x| x.id == id)
-            .ok_or_else(|| FileDBError::nf(id))
-            .map(|x| x.clone())
+    async fn get_by_id(&self, id: u32) -> Result<Option<RegisteredMeigen>, Self::Error> {
+        Ok(self.meigens.iter().find(|x| x.id == id).cloned())
     }
 
     // idから名言取得(複数指定) 一致するIDの名言がなかった場合はスキップする

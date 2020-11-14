@@ -1,13 +1,11 @@
 use crate::{MeigenDatabase, MeigenEntry, RegisteredMeigen};
 use async_trait::async_trait;
-use log::info;
-use mongodb::bson::{self, doc, Bson, Document};
-use mongodb::event::cmap::{CmapEventHandler, ConnectionClosedEvent, ConnectionCreatedEvent};
-use mongodb::options::ClientOptions;
-use mongodb::{Client, Collection};
+use mongodb::{
+    bson::{self, doc, Bson, Document},
+    options::ClientOptions,
+    Client, Collection,
+};
 use serde::{Deserialize, Serialize};
-use std::sync::{Arc, Mutex};
-use std::time::Duration;
 use tokio::stream::StreamExt;
 
 crate::make_error_enum! {
@@ -33,7 +31,7 @@ pub struct MongoMeigen {
 impl From<RegisteredMeigen> for MongoMeigen {
     fn from(data: RegisteredMeigen) -> MongoMeigen {
         MongoMeigen {
-            id: data.id as i64, //safe: i64 range is in range of u32
+            id: data.id as i64,
             author: data.author,
             content: data.content,
         }
@@ -43,95 +41,48 @@ impl From<RegisteredMeigen> for MongoMeigen {
 impl Into<RegisteredMeigen> for MongoMeigen {
     fn into(self) -> RegisteredMeigen {
         RegisteredMeigen {
-            id: self.id as u32, //safe: i64 range is in range of u32
+            id: self.id as u32,
             author: self.author,
             content: self.content,
         }
     }
 }
 
-struct MongoDBConnectionLogger {
-    count: Mutex<u32>,
-}
-
-impl MongoDBConnectionLogger {
-    fn new() -> Self {
-        Self {
-            count: Mutex::new(0),
-        }
-    }
-}
-
-impl CmapEventHandler for MongoDBConnectionLogger {
-    fn handle_connection_created_event(&self, _: ConnectionCreatedEvent) {
-        let mut count = self.count.lock().unwrap();
-        *count += 1;
-
-        info!(
-            "New MongoDB connection created. current connection count: {}",
-            count
-        );
-    }
-
-    fn handle_connection_closed_event(&self, _: ConnectionClosedEvent) {
-        let mut count = self.count.lock().unwrap();
-        *count -= 1;
-
-        info!(
-            "MongoDB connection closed. current connection count: {}",
-            count
-        );
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct MongoDB {
-    inner: Collection,
+    opt: ClientOptions,
 }
 
 impl MongoDB {
     pub async fn new(url: &str) -> Result<MongoDB, MongoDBError> {
-        let mut client_options = ClientOptions::parse(url)
+        let mut opt = ClientOptions::parse(url)
             .await
             .map_err(MongoDBError::url_parse_fail)?;
 
-        client_options.app_name = Some("Meigen Rust".into());
-        client_options.cmap_event_handler = Some(Arc::new(MongoDBConnectionLogger::new()));
-        client_options.min_pool_size = Some(0);
-        client_options.max_pool_size = Some(1);
-        client_options.max_idle_time = Some(Duration::from_secs(15));
+        opt.app_name = Some("Meigen Rust".into());
 
-        let database = Client::with_options(client_options)
+        Ok(MongoDB { opt })
+    }
+
+    fn connect(&self) -> Result<Collection, MongoDBError> {
+        Ok(Client::with_options(self.opt.clone())
             .map_err(MongoDBError::option_validate_fail)?
-            .database("meigen");
-
-        let entries = database.collection("entries");
-
-        let result = MongoDB { inner: entries };
-
-        Ok(result)
+            .database("meigen")
+            .collection("entries"))
     }
 
     async fn search_by_doc(
         &self,
         doc: impl Into<Option<Document>>,
     ) -> Result<Vec<RegisteredMeigen>, MongoDBError> {
-        let mut db_res = self
-            .inner
+        self.connect()?
             .find(doc, None)
             .await
-            .map_err(MongoDBError::get_fail)?;
-
-        let mut result = vec![];
-
-        while let Some(entry) = db_res.next().await {
-            let entry = entry.map_err(MongoDBError::get_fail)?;
-            let deserialized =
-                bson::from_bson(Bson::Document(entry)).map_err(MongoDBError::deserialize)?;
-            result.push(deserialized);
-        }
-
-        Ok(result)
+            .map_err(MongoDBError::get_fail)?
+            .map(|x| x.map(|d| bson::from_document(d).map_err(MongoDBError::deserialize)))
+            .collect::<Result<Result<_, _>, _>>()
+            .await
+            .map_err(MongoDBError::get_fail)?
     }
 }
 
@@ -155,7 +106,7 @@ impl MeigenDatabase for MongoDB {
             .ok_or_else(|| MongoDBError::serialize("bson::to_bson returned not document"))?
             .clone();
 
-        self.inner
+        self.connect()?
             .insert_one(doc, None)
             .await
             .map_err(MongoDBError::set_fail)?;
@@ -166,13 +117,8 @@ impl MeigenDatabase for MongoDB {
     // 名言を削除する。
     async fn delete_meigen(&mut self, id: u32) -> Result<(), Self::Error> {
         let result = self
-            .inner
-            .delete_one(
-                doc! {
-                    "id": Bson::Int64(id as i64)
-                },
-                None,
-            )
+            .connect()?
+            .delete_one(doc! { "id": Bson::Int64(id as i64) }, None)
             .await
             .map_err(MongoDBError::delete_fail)?;
 
@@ -187,23 +133,25 @@ impl MeigenDatabase for MongoDB {
     async fn search_by_author(&self, author: &str) -> Result<Vec<RegisteredMeigen>, Self::Error> {
         self.search_by_doc(doc! { "author": { "$regex": format!(".*{}.*", author) }})
             .await
+            .edit(|x| x.sort_by_key(|e| e.id))
     }
 
     // 名言本体から名言検索
     async fn search_by_content(&self, content: &str) -> Result<Vec<RegisteredMeigen>, Self::Error> {
         self.search_by_doc(doc! { "content": { "$regex": format!(".*{}.*", content) }})
             .await
+            .edit(|x| x.sort_by_key(|e| e.id))
     }
 
     // idから名言取得
-    async fn get_by_id(&self, id: u32) -> Result<RegisteredMeigen, Self::Error> {
-        self.inner
+    async fn get_by_id(&self, id: u32) -> Result<Option<RegisteredMeigen>, Self::Error> {
+        self.connect()?
             .find_one(doc! { "id": id }, None)
             .await
             .map_err(MongoDBError::get_fail)?
-            .ok_or_else(|| MongoDBError::nf(id))
-            .map(|x| bson::from_bson(Bson::Document(x)))?
-            .map_err(MongoDBError::deserialize)
+            .map(bson::from_document)
+            .map(|x| x.map_err(MongoDBError::deserialize))
+            .transpose()
     }
 
     // idから名言取得(複数指定) 一致するIDの名言がなかった場合はスキップする
@@ -213,7 +161,7 @@ impl MeigenDatabase for MongoDB {
 
     // 現在登録されている名言のなかで一番IDが大きいもの(=現在の(最大)名言ID)を返す
     async fn current_meigen_id(&self) -> Result<u32, Self::Error> {
-        self.inner
+        self.connect()?
             .aggregate(
                 vec![doc! {
                     "$group": {
@@ -240,7 +188,7 @@ impl MeigenDatabase for MongoDB {
 
     // len
     async fn len(&self) -> Result<u64, Self::Error> {
-        self.inner
+        self.connect()?
             .aggregate(vec![doc! { "$count": "id" }], None)
             .await
             .map_err(MongoDBError::get_fail)?
@@ -257,6 +205,24 @@ impl MeigenDatabase for MongoDB {
 
     // 全名言取得
     async fn get_all_meigen(&self) -> Result<Vec<RegisteredMeigen>, MongoDBError> {
-        self.search_by_doc(None).await
+        self.search_by_doc(None)
+            .await
+            .edit(|x| x.sort_by_key(|e| e.id))
+    }
+}
+
+trait ResultExt<T, E> {
+    fn edit(self, f: impl Fn(&mut T)) -> Self
+    where
+        Self: Sized;
+}
+
+impl<T, E> ResultExt<T, E> for Result<T, E> {
+    fn edit(mut self, f: impl Fn(&mut T)) -> Self {
+        if let Ok(ref mut v) = self {
+            f(v);
+        }
+
+        self
     }
 }

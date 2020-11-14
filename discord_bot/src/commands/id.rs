@@ -19,7 +19,8 @@ pub async fn id(db: &Arc<RwLock<impl MeigenDatabase>>, message: ParsedMessage) -
         .await
         .get_by_id(id)
         .await
-        .map_err(Error::load_failed)?;
+        .map_err(Error::load_failed)?
+        .ok_or_else(|| Error::meigen_nf(id))?;
 
     Ok(meigen_format(&found_meigen))
 }
