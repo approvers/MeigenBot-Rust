@@ -1,6 +1,5 @@
 #![type_length_limit = "1259894"]
 #![allow(dead_code)]
-#![deny(clippy::all)]
 
 use serenity::async_trait;
 use serenity::client::Client;

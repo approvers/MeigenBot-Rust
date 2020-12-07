@@ -56,5 +56,5 @@ pub fn meigen_format(meigen: &RegisteredMeigen) -> String {
 fn meigen_tidy_format(meigen: &RegisteredMeigen, _: usize) -> String {
     // 前までは名言がある程度長い場合末尾を省略するようにしていたのですが
     // どうやら余計な機能だったようなので削除しました。
-    return meigen_format(meigen);
+    meigen_format(meigen)
 }
