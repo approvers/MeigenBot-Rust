@@ -9,7 +9,7 @@ pub struct FindOptions<'a> {
     pub author: Option<&'a str>,
     pub content: Option<&'a str>,
     pub offset: u64,
-    pub limit: u64,
+    pub limit: u8,
 }
 
 #[async_trait]
