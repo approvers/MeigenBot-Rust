@@ -14,10 +14,11 @@ pub struct FindOptions<'a> {
 
 #[async_trait]
 pub trait MeigenDatabase {
-    fn get_current_id(&self) -> Result<u64>;
-
     fn save(&mut self, meigen: &Meigen) -> Result<()>;
     fn load(&self, id: MeigenID) -> Result<Option<Meigen>>;
+    fn delete(&mut self, id: MeigenID) -> Result<()>;
+
+    fn get_current_id(&self) -> Result<u64>;
 
     fn find(&self, options: FindOptions<'_>) -> Result<Vec<Option<Meigen>>>;
 }
