@@ -1,0 +1,126 @@
+{
+    "name": "meigen",
+    "description": "Create, get or find meigen(s)",
+    "options": [
+        {
+            "name": "make",
+            "description": "Create a new meigen",
+            "type": 1,
+            "options": [
+                {
+                    "name": "author",
+                    "description": "author of meigen",
+                    "type": 3,
+                    "required": true
+                },
+                {
+                    "name": "content",
+                    "description": "body of meigen",
+                    "type": 3,
+                    "required": true
+                }
+            ]
+        },
+        {
+            "name": "search",
+            "description": "Search meigens",
+            "type": 2,
+            "options": [
+                {
+                    "name": "author",
+                    "description": "Search meigens by author",
+                    "type": 1,
+                    "options": [
+                        {
+                            "name": "author",
+                            "description": "Search word",
+                            "type": 3,
+                            "required": true
+                        }
+                    ]
+                },
+                {
+                    "name": "content",
+                    "description": "Search meigens by content",
+                    "type": 1,
+                    "options": [
+                        {
+                            "name": "content",
+                            "description": "Search word",
+                            "type": 3,
+                            "required": true
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "help",
+            "description": "Show help",
+            "type": 1
+        },
+        {
+            "name": "id",
+            "description": "Show meigen which has specific ID",
+            "type": 1,
+            "options": [
+                {
+                    "name": "id",
+                    "description": "MeigenID which you want to get of",
+                    "type": 4,
+                    "required": true
+                }
+            ]
+        },
+        {
+            "name": "list",
+            "description": "Show list of meigen",
+            "type": 1,
+            "options": [
+                {
+                    "name": "count",
+                    "description": "count of shown meigen",
+                    "type": 4,
+                    "required": false
+                },
+                {
+                    "name": "page",
+                    "description": "page number",
+                    "type": 4,
+                    "required": false
+                }
+            ]
+        },
+        {
+            "name": "random",
+            "description": "Show random meigen",
+            "type": 1,
+            "options": [
+                {
+                    "name": "count",
+                    "description": "count of shown meigen",
+                    "type": 4,
+                    "required": false
+                }
+            ]
+        },
+        {
+            "name": "status",
+            "description": "Show count of registered meigen",
+            "type": 1
+        },
+        {
+            "name": "delete",
+            "description": "Delete meigen which has specific ID. Usable for only kawaemon",
+            "type": 1,
+            "options": [
+                {
+                    "name": "id",
+                    "description": "MeigenID which you want to delete of",
+                    "type": 4,
+                    "required": true
+                }
+            ]
+        }
+    ]
+}
