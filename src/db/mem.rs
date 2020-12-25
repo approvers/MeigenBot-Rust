@@ -62,4 +62,8 @@ impl MeigenDatabase for MemoryMeigenDatabase {
             .cloned()
             .collect())
     }
+
+    fn count(&self) -> Result<u64> {
+        Ok(self.inner.len() as _)
+    }
 }

@@ -19,4 +19,6 @@ pub trait MeigenDatabase {
     fn get_current_id(&self) -> Result<u64>;
 
     fn find(&self, options: FindOptions<'_>) -> Result<Vec<Meigen>>;
+
+    fn count(&self) -> Result<u64>;
 }
