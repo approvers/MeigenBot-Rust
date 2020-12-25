@@ -23,9 +23,12 @@ pub(super) fn filter(
         .and_then(verify_signature)
 }
 
-pub(super) fn try_recover(err: Rejection) -> Option<impl Reply> {
+pub(super) fn try_recover(err: &Rejection) -> Option<impl Reply> {
     if let Some(SignatureVerifyError) = err.find() {
-        return Some(reply_with_status("unauthorized", StatusCode::UNAUTHORIZED));
+        return Some(reply_with_status(
+            "invalid request signature",
+            StatusCode::UNAUTHORIZED,
+        ));
     }
 
     None
@@ -51,10 +54,12 @@ async fn verify_signature(
 
     UnparsedPublicKey::new(&ED25519, key.as_slice())
         .verify(data.as_bytes(), &signature)
-        .map_err(|_| {
-            log::trace!("failed to verify signature");
+        .map_err(|e| {
+            log::trace!("failed to verify signature: {}", e);
             reject_custom(SignatureVerifyError)
         })?;
+
+    log::trace!("no error reported while verifying signature");
 
     Ok(body)
 }

@@ -9,7 +9,7 @@ use {
     warp::{
         reject::Reject,
         reply::{json as reply_json, Json},
-        Filter, Rejection,
+        Filter, Rejection, Reply,
     },
 };
 
@@ -40,10 +40,19 @@ impl DiscordWebhookServer {
         let route = warp::post()
             .and(verify::filter(self.app_public_key_bytes))
             .and_then(on_request)
+            .recover(recover)
             .with(warp::log("discord_webhook_server"));
 
         warp::serve(route).run(ip.into()).await;
         Ok(())
+    }
+}
+
+async fn recover(err: Rejection) -> Result<impl Reply, Rejection> {
+    if let Some(reply) = verify::try_recover(&err) {
+        Ok(reply)
+    } else {
+        Err(err)
     }
 }
 
