@@ -1,9 +1,16 @@
+mod interaction;
 mod verify;
 
 use {
     anyhow::{Context, Result},
+    interaction::on_interaction,
+    serde_json::json,
     std::net::SocketAddr,
-    warp::{Filter, Rejection, Reply},
+    warp::{
+        reject::Reject,
+        reply::{json as reply_json, Json},
+        Filter, Rejection,
+    },
 };
 
 pub struct DiscordWebhookServerOptions {
@@ -40,18 +47,35 @@ impl DiscordWebhookServer {
     }
 }
 
-#[derive(serde::Deserialize)]
-struct DiscordRequest {
-    #[serde(rename = "type")]
-    type_: u8,
-}
+#[derive(Debug)]
+struct JsonDeserializeError;
+impl Reject for JsonDeserializeError {}
 
-async fn on_request(request: DiscordRequest) -> Result<impl Reply, Rejection> {
-    use {serde_json::json, warp::reply::json as reply_json};
+#[derive(Debug)]
+struct UnknownEventType;
+impl Reject for UnknownEventType {}
 
-    match request.type_ {
+async fn on_request(body: String) -> Result<Json, Rejection> {
+    #[derive(serde::Deserialize)]
+    struct DiscordRequest {
+        #[serde(rename = "type")]
+        type_: u8,
+    }
+
+    let event = serde_json::from_str::<DiscordRequest>(&body)
+        .map_err(|_| warp::reject::custom(JsonDeserializeError))?;
+
+    match event.type_ {
         // ping
-        1 => Ok(reply_json(&json!({ "type": 1 }))),
-        _ => unimplemented!(),
+        1 => {
+            log::info!("Discord Ping!");
+            Ok(reply_json(&json!({ "type": 1 })))
+        }
+
+        // interaction
+        2 => on_interaction(body).await,
+
+        // ???
+        _ => Err(warp::reject::custom(UnknownEventType)),
     }
 }
