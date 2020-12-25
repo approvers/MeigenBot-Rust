@@ -13,20 +13,20 @@ pub struct MemoryMeigenDatabase {
 
 #[async_trait]
 impl MeigenDatabase for MemoryMeigenDatabase {
-    fn get_current_id(&self) -> Result<u64> {
+    async fn get_current_id(&self) -> Result<u64> {
         Ok(self.inner.iter().map(|x| x.id).max().unwrap_or(0))
     }
 
-    fn save(&mut self, meigen: &Meigen) -> Result<()> {
+    async fn save(&mut self, meigen: &Meigen) -> Result<()> {
         self.inner.push(meigen.clone());
         Ok(())
     }
 
-    fn load(&self, id: u64) -> Result<Option<Meigen>> {
+    async fn load(&self, id: u64) -> Result<Option<Meigen>> {
         Ok(self.inner.iter().find(|x| x.id == id).cloned())
     }
 
-    fn delete(&mut self, id: u64) -> Result<()> {
+    async fn delete(&mut self, id: u64) -> Result<()> {
         let pos = self
             .inner
             .iter()
@@ -38,7 +38,7 @@ impl MeigenDatabase for MemoryMeigenDatabase {
         Ok(())
     }
 
-    fn find(&self, options: FindOptions<'_>) -> Result<Vec<Meigen>> {
+    async fn find(&self, options: FindOptions<'_>) -> Result<Vec<Meigen>> {
         Ok(self
             .inner
             .iter()
@@ -63,7 +63,7 @@ impl MeigenDatabase for MemoryMeigenDatabase {
             .collect())
     }
 
-    fn count(&self) -> Result<u64> {
+    async fn count(&self) -> Result<u64> {
         Ok(self.inner.len() as _)
     }
 }
