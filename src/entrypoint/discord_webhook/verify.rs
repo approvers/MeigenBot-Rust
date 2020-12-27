@@ -1,12 +1,13 @@
 use {
+    super::inject,
     ring::signature::{UnparsedPublicKey, ED25519},
     std::sync::Arc,
     warp::{
         http::StatusCode,
         hyper::body::Bytes,
         reject::{custom as reject_custom, Reject},
-        reply::with_status as reply_with_status,
-        Filter, Rejection, Reply,
+        reply::{with_status as reply_with_status, WithStatus},
+        Filter, Rejection,
     },
 };
 
@@ -16,14 +17,14 @@ pub(super) fn filter(
     let public_key_bytes = Arc::new(public_key_bytes);
 
     warp::any()
-        .and(warp::any().map(move || Arc::clone(&public_key_bytes)))
+        .and(inject(public_key_bytes))
         .and(warp::header::<String>("X-Signature-Ed25519"))
         .and(warp::header::<String>("X-Signature-Timestamp"))
         .and(warp::filters::body::bytes())
         .and_then(verify_signature)
 }
 
-pub(super) fn try_recover(err: &Rejection) -> Option<impl Reply> {
+pub(super) fn try_recover(err: &Rejection) -> Option<WithStatus<&'static str>> {
     if let Some(SignatureVerifyError) = err.find() {
         return Some(reply_with_status(
             "invalid request signature",
@@ -49,7 +50,7 @@ async fn verify_signature(
         reject_custom(SignatureVerifyError)
     })?;
 
-    let body = String::from_utf8(body.to_vec()).expect("Failed to parse as utf-8");
+    let body = String::from_utf8(body.to_vec()).expect("failed to parse as utf-8");
     let data = format!("{}{}", timestamp, body);
 
     UnparsedPublicKey::new(&ED25519, key.as_slice())

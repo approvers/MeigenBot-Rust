@@ -2,43 +2,51 @@ mod interaction;
 mod verify;
 
 use {
+    crate::{db::MeigenDatabase, Synced},
     anyhow::{Context, Result},
     interaction::on_interaction,
     serde_json::json,
-    std::net::SocketAddr,
+    std::{convert::Infallible, net::SocketAddr, sync::Arc},
+    tokio::sync::RwLock,
     warp::{
+        http::StatusCode,
         reject::Reject,
-        reply::{json as reply_json, Json},
+        reply::{json as reply_json, with_status as reply_with_status, Json},
         Filter, Rejection, Reply,
     },
 };
 
-pub struct DiscordWebhookServerOptions {
+// TODO: builder pattern is more rust-ish
+pub struct DiscordWebhookServerOptions<D: MeigenDatabase> {
     pub token: String,
     pub app_public_key: String,
+    pub db: D,
 }
 
-impl DiscordWebhookServerOptions {
-    pub fn into_server(self) -> Result<DiscordWebhookServer> {
+impl<D: MeigenDatabase> DiscordWebhookServerOptions<D> {
+    pub fn into_server(self) -> Result<DiscordWebhookServer<D>> {
         let bytes = hex::decode(self.app_public_key)
             .context("Failed to parse app_public_key into bytes")?;
 
         Ok(DiscordWebhookServer {
             token: self.token,
             app_public_key_bytes: bytes,
+            db: Arc::new(RwLock::new(self.db)),
         })
     }
 }
 
-pub struct DiscordWebhookServer {
+pub struct DiscordWebhookServer<D: MeigenDatabase> {
     token: String,
     app_public_key_bytes: Vec<u8>,
+    db: Synced<D>,
 }
 
-impl DiscordWebhookServer {
+impl<D: MeigenDatabase> DiscordWebhookServer<D> {
     pub async fn start(self, ip: impl Into<SocketAddr>) -> Result<()> {
         let route = warp::post()
             .and(verify::filter(self.app_public_key_bytes))
+            .and(inject(self.db))
             .and_then(on_request)
             .recover(recover)
             .with(warp::log("discord_webhook_server"));
@@ -48,12 +56,11 @@ impl DiscordWebhookServer {
     }
 }
 
-async fn recover(err: Rejection) -> Result<impl Reply, Rejection> {
-    if let Some(reply) = verify::try_recover(&err) {
-        Ok(reply)
-    } else {
-        Err(err)
-    }
+fn inject<T>(t: Arc<T>) -> impl Filter<Extract = (Arc<T>,), Error = Infallible> + Clone
+where
+    T: Send + Sync,
+{
+    warp::any().map(move || Arc::clone(&t))
 }
 
 #[derive(Debug)]
@@ -64,7 +71,7 @@ impl Reject for JsonDeserializeError {}
 struct UnknownEventType;
 impl Reject for UnknownEventType {}
 
-async fn on_request(body: String) -> Result<Json, Rejection> {
+async fn on_request(body: String, db: Synced<impl MeigenDatabase>) -> Result<Json, Rejection> {
     #[derive(serde::Deserialize)]
     struct DiscordRequest {
         #[serde(rename = "type")]
@@ -82,9 +89,28 @@ async fn on_request(body: String) -> Result<Json, Rejection> {
         }
 
         // interaction
-        2 => on_interaction(body).await,
+        2 => on_interaction(body, db).await,
 
         // ???
         _ => Err(warp::reject::custom(UnknownEventType)),
     }
+}
+
+async fn recover(err: Rejection) -> Result<impl Reply, Rejection> {
+    if let Some(reply) = verify::try_recover(&err) {
+        return Ok(reply);
+    }
+
+    if let Some(JsonDeserializeError) = err.find() {
+        return Ok(reply_with_status("invalid json", StatusCode::BAD_REQUEST));
+    }
+
+    if let Some(UnknownEventType) = err.find() {
+        return Ok(reply_with_status(
+            "unknown event type",
+            StatusCode::BAD_REQUEST,
+        ));
+    }
+
+    Err(err)
 }

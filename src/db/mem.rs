@@ -3,7 +3,7 @@ use {
         db::{FindOptions, MeigenDatabase},
         model::Meigen,
     },
-    anyhow::{anyhow, Result},
+    anyhow::Result,
     async_trait::async_trait,
 };
 
@@ -11,31 +11,47 @@ pub struct MemoryMeigenDatabase {
     inner: Vec<Meigen>,
 }
 
+impl MemoryMeigenDatabase {
+    pub fn new() -> Self {
+        Self { inner: vec![] }
+    }
+}
+
 #[async_trait]
 impl MeigenDatabase for MemoryMeigenDatabase {
-    async fn get_current_id(&self) -> Result<u64> {
+    async fn get_current_id(&self) -> Result<u32> {
         Ok(self.inner.iter().map(|x| x.id).max().unwrap_or(0))
     }
 
-    async fn save(&mut self, meigen: &Meigen) -> Result<()> {
+    async fn save(&mut self, author: String, content: String) -> Result<Meigen> {
+        let id = self.get_current_id().await?;
+
+        let meigen = Meigen {
+            id: id + 1,
+            author,
+            content,
+        };
+
         self.inner.push(meigen.clone());
-        Ok(())
+
+        Ok(meigen)
     }
 
-    async fn load(&self, id: u64) -> Result<Option<Meigen>> {
+    async fn load(&self, id: u32) -> Result<Option<Meigen>> {
         Ok(self.inner.iter().find(|x| x.id == id).cloned())
     }
 
-    async fn delete(&mut self, id: u64) -> Result<()> {
-        let pos = self
-            .inner
-            .iter()
-            .position(|x| x.id == id)
-            .ok_or_else(|| anyhow!("couldn't find meigen which has specified ID"))?;
+    async fn delete(&mut self, id: u32) -> Result<bool> {
+        let pos = self.inner.iter().position(|x| x.id == id);
 
-        self.inner.remove(pos);
+        Ok(match pos {
+            Some(pos) => {
+                self.inner.remove(pos);
+                true
+            }
 
-        Ok(())
+            None => false,
+        })
     }
 
     async fn find(&self, options: FindOptions<'_>) -> Result<Vec<Meigen>> {
@@ -63,7 +79,7 @@ impl MeigenDatabase for MemoryMeigenDatabase {
             .collect())
     }
 
-    async fn count(&self) -> Result<u64> {
+    async fn count(&self) -> Result<u32> {
         Ok(self.inner.len() as _)
     }
 }
