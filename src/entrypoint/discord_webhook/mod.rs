@@ -17,6 +17,9 @@ use {
     },
 };
 
+// 512KB limit
+const CONTENT_LENGTH_LIMIT: u64 = 1024 * 512;
+
 // TODO: builder pattern is more rust-ish
 pub struct DiscordWebhookServerOptions<D: MeigenDatabase> {
     pub app_public_key: String,
@@ -43,6 +46,7 @@ pub struct DiscordWebhookServer<D: MeigenDatabase> {
 impl<D: MeigenDatabase> DiscordWebhookServer<D> {
     pub async fn start(self, ip: impl Into<SocketAddr>) -> Result<()> {
         let route = warp::post()
+            .and(warp::body::content_length_limit(CONTENT_LENGTH_LIMIT))
             .and(verify::filter(self.app_public_key_bytes))
             .and(inject(self.db))
             .and_then(on_request)
