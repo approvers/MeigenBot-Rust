@@ -1,3 +1,5 @@
+use std::unimplemented;
+
 use {
     crate::{
         db::{FindOptions, MeigenDatabase},
@@ -93,15 +95,11 @@ pub async fn random(db: Synced<impl MeigenDatabase>, count: Option<u8>) -> Resul
     Ok(meigens.into_iter().fold_list())
 }
 
-pub async fn make(
-    db: Synced<impl MeigenDatabase>,
-    mut author: String,
-    mut content: String,
-) -> Result<String> {
-    let strip = |s: String| s.replace("`", "");
+pub async fn make(db: Synced<impl MeigenDatabase>, author: &str, content: &str) -> Result<String> {
+    let strip = |s: &str| s.replace("`", "");
 
-    author = strip(author);
-    content = strip(content);
+    let author = strip(author);
+    let content = strip(content);
 
     if author.chars().count() + content.chars().count() > MEIGEN_LENGTH_LIMIT {
         return Ok("名言が長すぎます。もっと短くしてください。".into());
@@ -186,4 +184,12 @@ pub async fn id(db: Synced<impl MeigenDatabase>, id: u32) -> Result<String> {
         Some(m) => format!("{}", m),
         None => "そのIDを持つ名言はありません".into(),
     })
+}
+
+pub async fn list(
+    db: Synced<impl MeigenDatabase>,
+    show_count: Option<u8>,
+    page: Option<u32>,
+) -> Result<String> {
+    unimplemented!()
 }
