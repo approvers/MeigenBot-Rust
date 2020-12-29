@@ -1,5 +1,5 @@
 {
-    "name": "meigen",
+    "name": "gmeigen",
     "description": "Create, get or find meigen(s)",
     "options": [
         {
@@ -36,6 +36,18 @@
                             "description": "Search word",
                             "type": 3,
                             "required": true
+                        },
+                        {
+                            "name": "count",
+                            "description": "count of shown meigen",
+                            "type": 4,
+                            "required": false
+                        },
+                        {
+                            "name": "page",
+                            "description": "page number",
+                            "type": 4,
+                            "required": false
                         }
                     ]
                 },
@@ -49,6 +61,18 @@
                             "description": "Search word",
                             "type": 3,
                             "required": true
+                        },
+                        {
+                            "name": "count",
+                            "description": "count of shown meigen",
+                            "type": 4,
+                            "required": false
+                        },
+                        {
+                            "name": "page",
+                            "description": "page number",
+                            "type": 4,
+                            "required": false
                         }
                     ]
                 }
