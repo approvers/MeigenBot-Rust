@@ -1,9 +1,8 @@
-use std::unimplemented;
-
 use {
     crate::{
         db::{FindOptions, MeigenDatabase},
         model::Meigen,
+        util::IteratorEditExt,
         Synced,
     },
     anyhow::{Context, Result},
@@ -12,6 +11,7 @@ use {
 };
 
 const MEIGEN_LENGTH_LIMIT: usize = 300;
+const LIST_LENGTH_LIMIT: usize = 400;
 
 trait IterExt {
     fn fold_list(self) -> String;
@@ -20,16 +20,57 @@ trait IterExt {
 impl<T, D> IterExt for T
 where
     D: std::fmt::Display,
-    T: Iterator<Item = D>,
+    T: Iterator<Item = D> + DoubleEndedIterator,
 {
     fn fold_list(self) -> String {
-        self.fold(String::new(), |mut text, meigen| {
-            text += &format!("{}\n", meigen);
-            text
-        })
-        .trim()
-        .to_string()
+        let (mut text, len) = self
+            .rev()
+            .fold((String::new(), 0), |(mut text, mut len), meigen| {
+                if len < LIST_LENGTH_LIMIT {
+                    let meigen = format!("{}\n", meigen);
+
+                    text.insert_str(0, &meigen);
+                    len += meigen.chars().count() + 1;
+                }
+
+                (text, len)
+            });
+
+        if len >= LIST_LENGTH_LIMIT {
+            text.insert_str(0, "結果が長すぎたため、一部の名言は省略されました。\n");
+        }
+
+        text
     }
+}
+
+/// clamps number, returns clamped number and message which is sent to User
+macro_rules! option {
+    ({value: $value:ident, default: $default:literal, min: $min:literal, max: $max:literal $(,)?}) => {{
+        match $value.unwrap_or($default) {
+            n if n > $max => (
+                $max,
+                concat!(
+                    stringify!($value),
+                    "の値は大きすぎたため",
+                    stringify!($max),
+                    "に丸められました。\n"
+                ),
+            ),
+
+            n if n < $min => (
+                $max,
+                concat!(
+                    stringify!($value),
+                    "の値は小さすぎたため",
+                    stringify!($max),
+                    "に丸められました。\n"
+                ),
+            ),
+
+            n => (n, ""),
+        }
+    }};
 }
 
 pub async fn help() -> Result<String> {
@@ -67,12 +108,17 @@ total_count: {}
 }
 
 pub async fn random(db: Synced<impl MeigenDatabase>, count: Option<u8>) -> Result<String> {
-    let count = count.unwrap_or(1);
+    let (count, clamp_msg) = option!({
+        value: count,
+        default: 1,
+        min: 1,
+        max: 5,
+    });
 
     fn get_random<'a>(
         db: &'a Synced<impl MeigenDatabase>,
         max: u32,
-    ) -> Pin<Box<dyn Future<Output = Result<Meigen>> + 'a>> {
+    ) -> Pin<Box<dyn Future<Output = Result<Meigen>> + Send + 'a>> {
         Box::pin(async move {
             let pos = StdRng::from_rng(&mut rand::thread_rng())
                 .unwrap()
@@ -92,7 +138,12 @@ pub async fn random(db: Synced<impl MeigenDatabase>, count: Option<u8>) -> Resul
         meigens.push(get_random(&db, max).await?);
     }
 
-    Ok(meigens.into_iter().fold_list())
+    meigens.sort_by_key(|x| x.id);
+
+    let mut msg = meigens.into_iter().fold_list();
+    msg.insert_str(0, clamp_msg);
+
+    Ok(msg)
 }
 
 pub async fn make(db: Synced<impl MeigenDatabase>, author: &str, content: &str) -> Result<String> {
@@ -120,8 +171,13 @@ pub async fn search_author(
     show_count: Option<u8>,
     page: Option<u32>,
 ) -> Result<String> {
-    let show_count = show_count.unwrap_or(5);
     let page = page.unwrap_or(0);
+    let (show_count, clamp_msg) = option!({
+        value: show_count,
+        default: 5,
+        min: 1,
+        max: 10
+    });
 
     find(
         db,
@@ -133,6 +189,7 @@ pub async fn search_author(
         },
     )
     .await
+    .edit(|x| x.insert_str(0, clamp_msg))
 }
 
 pub async fn search_content(
@@ -141,8 +198,13 @@ pub async fn search_content(
     show_count: Option<u8>,
     page: Option<u32>,
 ) -> Result<String> {
-    let show_count = show_count.unwrap_or(5);
     let page = page.unwrap_or(0);
+    let (show_count, clamp_msg) = option!({
+        value: show_count,
+        default: 5,
+        min: 1,
+        max: 10
+    });
 
     find(
         db,
@@ -154,13 +216,50 @@ pub async fn search_content(
         },
     )
     .await
+    .edit(|x| x.insert_str(0, clamp_msg))
 }
 
-pub async fn delete(db: Synced<impl MeigenDatabase>, id: u32) -> Result<String> {
+pub async fn list(
+    db: Synced<impl MeigenDatabase>,
+    show_count: Option<u8>,
+    page: Option<u32>,
+) -> Result<String> {
+    let page = page.unwrap_or(0);
+    let (show_count, clamp_msg) = option!({
+        value: show_count,
+        default: 5,
+        min: 1,
+        max: 10
+    });
+
+    find(
+        db,
+        FindOptions {
+            author: None,
+            content: None,
+            offset: (show_count as u32) * page,
+            limit: show_count,
+        },
+    )
+    .await
+    .edit(|x| x.insert_str(0, clamp_msg))
+}
+
+const KAWAEMON_DISCORD_USER_ID: u64 = 391857452360007680;
+
+pub async fn delete(
+    db: Synced<impl MeigenDatabase>,
+    meigen_id: u32,
+    user_id: u64,
+) -> Result<String> {
+    if user_id != KAWAEMON_DISCORD_USER_ID {
+        return Ok("このコマンドはかわえもんにしか実行できません".into());
+    }
+
     let deleted = db
         .write()
         .await
-        .delete(id)
+        .delete(meigen_id)
         .await
         .context("failed to delete meigen")?;
 
@@ -184,12 +283,4 @@ pub async fn id(db: Synced<impl MeigenDatabase>, id: u32) -> Result<String> {
         Some(m) => format!("{}", m),
         None => "そのIDを持つ名言はありません".into(),
     })
-}
-
-pub async fn list(
-    db: Synced<impl MeigenDatabase>,
-    show_count: Option<u8>,
-    page: Option<u32>,
-) -> Result<String> {
-    unimplemented!()
 }

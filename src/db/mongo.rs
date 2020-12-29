@@ -1,6 +1,6 @@
 use {
-    super::{FindOptions, IteratorEditExt},
-    crate::{db::MeigenDatabase, model::Meigen},
+    super::FindOptions,
+    crate::{db::MeigenDatabase, model::Meigen, util::IteratorEditExt},
     anyhow::{Context, Result},
     async_trait::async_trait,
     mongodb::{
@@ -17,6 +17,16 @@ struct MongoMeigen {
     id: i64,
     author: String,
     content: String,
+}
+
+impl Into<Meigen> for MongoMeigen {
+    fn into(self) -> Meigen {
+        Meigen {
+            id: self.id as _,
+            author: self.author,
+            content: self.content,
+        }
+    }
 }
 
 pub struct MongoMeigenDatabase {
@@ -44,9 +54,9 @@ impl MeigenDatabase for MongoMeigenDatabase {
         let current_id = self
             .get_current_id()
             .await
-            .context("failed to get current head meigen id")?;
+            .context("failed to get current head meigen id")? as i64;
 
-        let meigen = Meigen {
+        let meigen = MongoMeigen {
             id: current_id + 1,
             author,
             content,
@@ -59,7 +69,7 @@ impl MeigenDatabase for MongoMeigenDatabase {
             .await
             .context("failed to insert meigen")?;
 
-        Ok(meigen)
+        Ok(meigen.into())
     }
 
     async fn load(&self, id: u32) -> anyhow::Result<Option<Meigen>> {
@@ -67,9 +77,10 @@ impl MeigenDatabase for MongoMeigenDatabase {
             .find_one(doc! { "id": id }, None)
             .await
             .context("failed to fetch meigen")?
-            .map(from_document)
+            .map(from_document::<MongoMeigen>)
             .transpose()
             .context("failed to deserialize meigen")
+            .map(|x| x.map(|x| x.into()))
     }
 
     async fn delete(&mut self, id: u32) -> anyhow::Result<bool> {
@@ -77,7 +88,7 @@ impl MeigenDatabase for MongoMeigenDatabase {
             .delete_one(doc! { "id": id }, None)
             .await
             .context("failed to delete meigen")
-            .map(|x| x.deleted_count == 0)
+            .map(|x| x.deleted_count == 1)
     }
 
     async fn get_current_id(&self) -> anyhow::Result<u32> {
@@ -124,6 +135,7 @@ impl MeigenDatabase for MongoMeigenDatabase {
 
                         doc! { "$match": doc }
                     },
+                    doc! { "$sort": { "id": -1 } },
                     doc! { "$skip": options.offset },
                     doc! { "$limit": options.limit as u32 },
                 ],
@@ -135,7 +147,8 @@ impl MeigenDatabase for MongoMeigenDatabase {
             .await
             .context("failed to fetch aggregated documents")?
             .into_iter()
-            .map(from_document)
+            .map(from_document::<MongoMeigen>)
+            .map(|x| x.map(|x| x.into()))
             .collect::<Result<Vec<Meigen>, _>>()
             .edit(|x| x.sort_by_key(|x| x.id))
             .context("failed to deserialize result")

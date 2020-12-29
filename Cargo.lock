@@ -903,6 +903,7 @@ dependencies = [
  "hex",
  "log",
  "mongodb",
+ "num-traits",
  "pretty_env_logger",
  "rand 0.8.0",
  "regex",

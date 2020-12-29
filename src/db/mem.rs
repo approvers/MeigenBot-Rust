@@ -58,6 +58,7 @@ impl MeigenDatabase for MemoryMeigenDatabase {
         Ok(self
             .inner
             .iter()
+            .rev()
             .flat_map(|x| {
                 if let Some(author) = options.author {
                     if !x.author.contains(author) {

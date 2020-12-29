@@ -1,4 +1,5 @@
 mod interaction;
+mod models;
 mod verify;
 
 use {
@@ -18,7 +19,6 @@ use {
 
 // TODO: builder pattern is more rust-ish
 pub struct DiscordWebhookServerOptions<D: MeigenDatabase> {
-    pub token: String,
     pub app_public_key: String,
     pub db: D,
 }
@@ -29,7 +29,6 @@ impl<D: MeigenDatabase> DiscordWebhookServerOptions<D> {
             .context("Failed to parse app_public_key into bytes")?;
 
         Ok(DiscordWebhookServer {
-            token: self.token,
             app_public_key_bytes: bytes,
             db: Arc::new(RwLock::new(self.db)),
         })
@@ -37,7 +36,6 @@ impl<D: MeigenDatabase> DiscordWebhookServerOptions<D> {
 }
 
 pub struct DiscordWebhookServer<D: MeigenDatabase> {
-    token: String,
     app_public_key_bytes: Vec<u8>,
     db: Synced<D>,
 }
@@ -63,13 +61,20 @@ where
     warp::any().map(move || Arc::clone(&t))
 }
 
-#[derive(Debug)]
-struct JsonDeserializeError;
-impl Reject for JsonDeserializeError {}
+macro_rules! warp_rejects {
+    ($($name: ident),+$(,)?) => {
+        $(#[derive(Debug)]
+        struct $name;
+        impl Reject for $name {})+
+    };
+}
 
-#[derive(Debug)]
-struct UnknownEventType;
-impl Reject for UnknownEventType {}
+warp_rejects! {
+    JsonDeserializeError,
+    UnknownEventType,
+    InternalServerError,
+    BadRequest,
+}
 
 async fn on_request(body: String, db: Synced<impl MeigenDatabase>) -> Result<Json, Rejection> {
     #[derive(serde::Deserialize)]
@@ -108,6 +113,20 @@ async fn recover(err: Rejection) -> Result<impl Reply, Rejection> {
     if let Some(UnknownEventType) = err.find() {
         return Ok(reply_with_status(
             "unknown event type",
+            StatusCode::BAD_REQUEST,
+        ));
+    }
+
+    if let Some(InternalServerError) = err.find() {
+        return Ok(reply_with_status(
+            "internal server error",
+            StatusCode::INTERNAL_SERVER_ERROR,
+        ));
+    }
+
+    if let Some(BadRequest) = err.find() {
+        return Ok(reply_with_status(
+            "invalid request",
             StatusCode::BAD_REQUEST,
         ));
     }

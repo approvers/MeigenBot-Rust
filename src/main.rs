@@ -1,9 +1,8 @@
-#![allow(dead_code)]
-
 mod command;
 mod db;
 mod entrypoint;
 mod model;
+mod util;
 
 use {
     crate::{
@@ -20,8 +19,14 @@ async fn main() {
     dotenv::dotenv().ok();
     pretty_env_logger::init();
 
+    let port = std::env::var("PORT")
+        .as_ref()
+        .map(|x| x.as_str())
+        .unwrap_or("8080")
+        .parse()
+        .unwrap();
+
     DiscordWebhookServerOptions {
-        token: std::env::var("DISCORD_TOKEN").unwrap(),
         app_public_key: std::env::var("DISCORD_APP_PUBLIC_KEY").unwrap(),
         db: MongoMeigenDatabase::new(&std::env::var("MONGODB_URI").unwrap())
             .await
@@ -29,7 +34,7 @@ async fn main() {
     }
     .into_server()
     .unwrap()
-    .start(([127, 0, 0, 1], 8080))
+    .start(([0, 0, 0, 0], port))
     .await
     .unwrap();
 }

@@ -1,7 +1,10 @@
 use {
-    super::JsonDeserializeError,
-    crate::{command, db::MeigenDatabase, Synced},
-    serde::{de::DeserializeOwned, Deserialize},
+    crate::{
+        db::MeigenDatabase,
+        entrypoint::discord_webhook::{models::*, JsonDeserializeError},
+        Synced,
+    },
+    serde::de::DeserializeOwned,
     serde_json::json,
     warp::{
         reject::{custom as custom_reject, Rejection},
@@ -9,25 +12,14 @@ use {
     },
 };
 
-#[derive(Deserialize)]
-struct Request {
-    data: RequestData,
-}
-
-#[derive(Deserialize)]
-struct RequestData {
-    options: Vec<RequestOption>,
-}
-
-#[derive(Deserialize)]
-struct RequestOption {
-    name: String,
-    value: Option<String>,
-    options: Option<Vec<RequestOption>>,
-}
-
 fn try_parse<T: DeserializeOwned>(data: &str) -> Result<T, Rejection> {
-    serde_json::from_str(data).map_err(|_| custom_reject(JsonDeserializeError))
+    serde_json::from_str(data).map_err(|e| {
+        log::info!(
+            "failed to parse json. discord fault or your fault?: {:?}",
+            e
+        );
+        custom_reject(JsonDeserializeError)
+    })
 }
 
 pub(super) async fn on_interaction(
@@ -36,45 +28,43 @@ pub(super) async fn on_interaction(
 ) -> Result<Json, Rejection> {
     let request = try_parse::<Request>(&body)?;
 
-    if let Some(first_opt) = request.data.options.first() {
-        let cmd_result = match first_opt.name.as_str() {
-            "help" => Some(command::help().await),
-            "status" => Some(command::status(db).await),
-            _ => None,
-        };
+    let cmd_result = run_command(db, &request).await;
 
-        if let Some(cmd_result) = cmd_result {
-            let msg = match cmd_result {
-                Ok(v) => v,
-                Err(e) => {
+    let msg = match cmd_result {
+        Ok(v) => v,
+        Err(e) => {
+            log::error!("{:?}", e);
+            match e {
+                RunCommandError::InvalidRequest(_) => return Err(custom_reject(super::BadRequest)),
+
+                RunCommandError::InternalServerError(e) => {
                     log::error!("something went wrong: {:?}", e);
                     String::from(
                         "処理がうまくいきませんでした。 <@391857452360007680> ログを見てください。",
                     )
                 }
-            };
-
-            return Ok(reply_json(&json!({
-                // ChannelMessageWithSource: respond with a message, showing the user's input
-                "type": 4,
-                "data": {
-                    "content": msg
-                }
-            })));
+            }
         }
-    }
+    };
 
-    unimplemented!()
+    return Ok(reply_json(&json!({
+        // ChannelMessageWithSource: respond with a message, showing the user's input
+        "type": 4,
+        "data": {
+            "content": msg
+        }
+    })));
 }
 
+#[derive(Debug)]
 enum RunCommandError {
     InternalServerError(anyhow::Error),
     InvalidRequest(&'static str),
 }
 
 async fn run_command(
-    req: &Request,
     db: Synced<impl MeigenDatabase>,
+    req: &Request,
 ) -> Result<String, RunCommandError> {
     use {crate::command::*, RunCommandError::*};
 
@@ -93,6 +83,7 @@ async fn run_command(
             .as_ref()
     }
 
+    #[allow(clippy::unnecessary_wraps)]
     fn on_parse_fail(
         field_name: &'static str,
         ty: &'static str,
@@ -147,20 +138,16 @@ async fn run_command(
         }
 
         "search" => {
-            let sub = first_opt
-                .options
-                .as_ref()
-                .and_then(|x| x.first())
-                .ok_or_else(|| {
-                    RunCommandError::InvalidRequest("search command requires subcommand")
-                })?;
+            let sub = first_opt.options.as_ref().and_then(|x| x.first()).ok_or(
+                RunCommandError::InvalidRequest("search command requires subcommand"),
+            )?;
 
             match sub.name.as_str() {
                 "author" => {
                     let (author, (show_count, page)) = extract!({
                         from: sub,
                         required: [author],
-                        optional: [show_count: u8, page: u32]
+                        optional: [count: u8, page: u32]
                     });
 
                     search_author(db, author, show_count, page).await
@@ -170,7 +157,7 @@ async fn run_command(
                     let (content, (show_count, page)) = extract!({
                         from: sub,
                         required: [content],
-                        optional: [show_count: u8, page: u32]
+                        optional: [count: u8, page: u32]
                     });
 
                     search_content(db, content, show_count, page).await
@@ -206,13 +193,20 @@ async fn run_command(
         }
         "status" => status(db).await,
         "delete" => {
-            let (count, ()) = extract!({
+            let (meigenid, ()) = extract!({
                 from: first_opt,
-                required: [count: u32],
+                required: [id: u32],
             });
 
-            // TODO: kawaemon restrict
-            delete(db, count).await
+            let id = match req.member.user.id.parse() {
+                Ok(v) => v,
+                Err(e) => {
+                    log::info!("failed to deserialize request.member.user.id: {}", e);
+                    return Err(InvalidRequest("user id was invalid"));
+                }
+            };
+
+            delete(db, meigenid, id).await
         }
         _ => return Err(InvalidRequest("unexpected subcommand")),
     }
