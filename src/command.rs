@@ -3,7 +3,7 @@ use {
         db::{FindOptions, MeigenDatabase},
         Synced,
     },
-    anyhow::{Context, Result},
+    anyhow::Result,
 };
 
 const LIST_LENGTH_LIMIT: usize = 400;
@@ -94,16 +94,5 @@ pub use list::list;
 mod delete;
 pub use delete::delete;
 
-pub async fn id(db: Synced<impl MeigenDatabase>, id: u32) -> Result<String> {
-    let meigen = db
-        .read()
-        .await
-        .load(id)
-        .await
-        .context("failed to get meigen")?;
-
-    Ok(match meigen {
-        Some(m) => format!("{}", m),
-        None => "そのIDを持つ名言はありません".into(),
-    })
-}
+mod id;
+pub use id::id;
