@@ -7,7 +7,6 @@ use {
     anyhow::{Context, Result},
 };
 
-const MEIGEN_LENGTH_LIMIT: usize = 300;
 const LIST_LENGTH_LIMIT: usize = 400;
 
 trait IterExt {
@@ -79,20 +78,8 @@ pub use status::status;
 mod random;
 pub use random::random;
 
-pub async fn make(db: Synced<impl MeigenDatabase>, author: &str, content: &str) -> Result<String> {
-    let strip = |s: &str| s.replace("`", "");
-
-    let author = strip(author);
-    let content = strip(content);
-
-    if author.chars().count() + content.chars().count() > MEIGEN_LENGTH_LIMIT {
-        return Ok("名言が長すぎます。もっと短くしてください。".into());
-    }
-
-    let meigen = db.write().await.save(author, content).await?;
-
-    Ok(format!("{}", meigen))
-}
+mod make;
+pub use make::make;
 
 async fn find(db: Synced<impl MeigenDatabase>, opt: FindOptions<'_>) -> Result<String> {
     Ok(db.read().await.find(opt).await?.into_iter().fold_list())
