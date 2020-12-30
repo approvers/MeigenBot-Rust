@@ -76,21 +76,8 @@ macro_rules! option {
 mod help;
 pub use help::help;
 
-pub async fn status(db: Synced<impl MeigenDatabase>) -> Result<String> {
-    let count = db
-        .read()
-        .await
-        .count()
-        .await
-        .context("Failed to fetch meigen count")?;
-
-    Ok(format!(
-        "```yaml
-total_count: {}
-```",
-        count
-    ))
-}
+mod status;
+pub use status::status;
 
 pub async fn random(db: Synced<impl MeigenDatabase>, count: Option<u8>) -> Result<String> {
     let (count, clamp_msg) = option!({
