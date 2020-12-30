@@ -85,32 +85,8 @@ async fn find(db: Synced<impl MeigenDatabase>, opt: FindOptions<'_>) -> Result<S
     Ok(db.read().await.find(opt).await?.into_iter().fold_list())
 }
 
-pub async fn search_author(
-    db: Synced<impl MeigenDatabase>,
-    author: &str,
-    show_count: Option<u8>,
-    page: Option<u32>,
-) -> Result<String> {
-    let page = page.unwrap_or(0);
-    let (show_count, clamp_msg) = option!({
-        value: show_count,
-        default: 5,
-        min: 1,
-        max: 10
-    });
-
-    find(
-        db,
-        FindOptions {
-            author: Some(author),
-            content: None,
-            offset: page * (show_count as u32),
-            limit: show_count,
-        },
-    )
-    .await
-    .edit(|x| x.insert_str(0, clamp_msg))
-}
+mod search;
+pub use search::author::search_author;
 
 pub async fn search_content(
     db: Synced<impl MeigenDatabase>,
