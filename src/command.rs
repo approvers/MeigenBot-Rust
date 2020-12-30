@@ -1,7 +1,6 @@
 use {
     crate::{
         db::{FindOptions, MeigenDatabase},
-        util::IteratorEditExt,
         Synced,
     },
     anyhow::{Context, Result},
@@ -89,31 +88,8 @@ mod search;
 pub use search::author::search_author;
 pub use search::content::search_content;
 
-pub async fn list(
-    db: Synced<impl MeigenDatabase>,
-    show_count: Option<u8>,
-    page: Option<u32>,
-) -> Result<String> {
-    let page = page.unwrap_or(0);
-    let (show_count, clamp_msg) = option!({
-        value: show_count,
-        default: 5,
-        min: 1,
-        max: 10
-    });
-
-    find(
-        db,
-        FindOptions {
-            author: None,
-            content: None,
-            offset: (show_count as u32) * page,
-            limit: show_count,
-        },
-    )
-    .await
-    .edit(|x| x.insert_str(0, clamp_msg))
-}
+mod list;
+pub use list::list;
 
 const KAWAEMON_DISCORD_USER_ID: u64 = 391857452360007680;
 
