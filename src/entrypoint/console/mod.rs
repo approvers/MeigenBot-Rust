@@ -30,10 +30,8 @@ impl<D: MeigenDatabase> Console<D> {
             });
 
             let begin = Instant::now();
-            if let Some(result) = self.on_input(buf.trim()).await {
-                if let Ok(text) = result {
-                    println!("{}", text);
-                }
+            if let Some(Ok(text)) = self.on_input(buf.trim()).await {
+                println!("{}", text);
             }
             println!("process took {}ms", begin.elapsed().as_millis());
 
@@ -42,7 +40,7 @@ impl<D: MeigenDatabase> Console<D> {
     }
 
     async fn on_input(&mut self, text: &str) -> Option<Result<String>> {
-        let mut splitted = text.split(" ");
+        let mut splitted = text.split(' ');
 
         if splitted.next()? != "g!meigen" {
             return None;
