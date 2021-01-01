@@ -18,7 +18,16 @@ type Synced<T> = Arc<RwLock<T>>;
 
 fn main() -> Result<()> {
     dotenv::dotenv().ok();
-    tracing_subscriber::fmt::init();
+
+    let use_ansi = match env_var("NO_COLOR") {
+        Ok(_) => false,
+        Err(_) => true,
+    };
+
+    tracing_subscriber::fmt()
+        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .with_ansi(use_ansi)
+        .init();
 
     tokio::runtime::Builder::new()
         .threaded_scheduler()
