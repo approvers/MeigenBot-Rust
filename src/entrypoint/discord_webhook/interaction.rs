@@ -14,7 +14,7 @@ use {
 
 fn try_parse<T: DeserializeOwned>(data: &str) -> Result<T, Rejection> {
     serde_json::from_str(data).map_err(|e| {
-        log::info!(
+        tracing::info!(
             "failed to parse json. discord fault or your fault?: {:?}",
             e
         );
@@ -33,12 +33,12 @@ pub(super) async fn on_interaction(
     let msg = match cmd_result {
         Ok(v) => v,
         Err(e) => {
-            log::error!("{:?}", e);
+            tracing::error!("{:?}", e);
             match e {
                 RunCommandError::InvalidRequest(_) => return Err(custom_reject(super::BadRequest)),
 
                 RunCommandError::InternalServerError(e) => {
-                    log::error!("something went wrong: {:?}", e);
+                    tracing::error!("something went wrong: {:?}", e);
                     String::from(
                         "処理がうまくいきませんでした。 <@391857452360007680> ログを見てください。",
                     )
@@ -209,7 +209,7 @@ async fn run_command(
             let id = match req.member.user.id.parse() {
                 Ok(v) => v,
                 Err(e) => {
-                    log::info!("failed to deserialize request.member.user.id: {}", e);
+                    tracing::info!("failed to deserialize request.member.user.id: {}", e);
                     return Err(InvalidRequest("user id was invalid"));
                 }
             };

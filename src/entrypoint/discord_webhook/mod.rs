@@ -51,7 +51,7 @@ impl<D: MeigenDatabase> DiscordWebhookServer<D> {
             .and(inject(self.db))
             .and_then(on_request)
             .recover(recover)
-            .with(warp::log("discord_webhook_server"));
+            .with(warp::trace::request());
 
         warp::serve(route).run(ip.into()).await;
         Ok(())
@@ -93,7 +93,7 @@ async fn on_request(body: String, db: Synced<impl MeigenDatabase>) -> Result<Jso
     match event.type_ {
         // ping
         1 => {
-            log::info!("Discord Ping!");
+            tracing::info!("Discord Ping!");
             Ok(reply_json(&json!({ "type": 1 })))
         }
 

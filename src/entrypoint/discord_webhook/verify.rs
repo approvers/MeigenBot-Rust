@@ -46,7 +46,7 @@ async fn verify_signature(
     body: Bytes,
 ) -> Result<String, Rejection> {
     let signature = hex::decode(&signature).map_err(|_| {
-        log::trace!("failed to decode signature");
+        tracing::trace!("failed to decode signature");
         reject_custom(SignatureVerifyError)
     })?;
 
@@ -56,11 +56,11 @@ async fn verify_signature(
     UnparsedPublicKey::new(&ED25519, key.as_slice())
         .verify(data.as_bytes(), &signature)
         .map_err(|e| {
-            log::trace!("failed to verify signature: {}", e);
+            tracing::trace!("failed to verify signature: {}", e);
             reject_custom(SignatureVerifyError)
         })?;
 
-    log::trace!("no error reported while verifying signature");
+    tracing::trace!("no error reported while verifying signature");
 
     Ok(body)
 }
