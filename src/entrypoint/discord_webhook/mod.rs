@@ -1,5 +1,5 @@
 mod interaction;
-mod models;
+mod model;
 mod verify;
 
 use {

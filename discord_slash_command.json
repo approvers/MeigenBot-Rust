@@ -97,6 +97,19 @@
             ]
         },
         {
+            "name": "gophersay",
+            "description": "Gopher says meigen which has specific ID",
+            "type": 1,
+            "options": [
+                {
+                    "name": "id",
+                    "description": "MeigenID which you want Gopher to say of",
+                    "type": 4,
+                    "required": true
+                }
+            ]
+        },
+        {
             "name": "list",
             "description": "Show list of meigen",
             "type": 1,

@@ -284,3 +284,53 @@ pub async fn id(db: Synced<impl MeigenDatabase>, id: u32) -> Result<String> {
         None => "そのIDを持つ名言はありません".into(),
     })
 }
+
+pub async fn gophersay(db: Synced<impl MeigenDatabase>, id: u32) -> Result<String> {
+    let meigen = db
+        .read()
+        .await
+        .load(id)
+        .await
+        .context("failed to get meigen")?;
+
+    let meigen = match meigen {
+        None => return Ok("そのIDを持つ名言はありません".into()),
+
+        Some(meigen) => format!(
+            "{}
+    --- {}",
+            meigen.content, meigen.author
+        )
+        .lines()
+        .collect::<Vec<_>>()
+        .join("\n  "),
+    };
+
+    let bar_length = meigen
+        .lines()
+        .map(|x| {
+            x.chars()
+                .map(|x| if x.is_ascii() { 1 } else { 2 })
+                .sum::<usize>()
+        })
+        .max()
+        .unwrap_or(30)
+        + 4;
+
+    let bar = "-".chars().cycle().take(bar_length).collect::<String>();
+
+    let msg = format!(
+        "```
+{}
+  {}
+{}
+{}
+```",
+        bar,
+        meigen,
+        bar,
+        include_str!("./gopher.ascii")
+    );
+
+    Ok(msg)
+}

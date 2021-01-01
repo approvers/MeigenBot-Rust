@@ -1,7 +1,7 @@
 use {
     crate::{
         db::MeigenDatabase,
-        entrypoint::discord_webhook::{models::*, JsonDeserializeError},
+        entrypoint::discord_webhook::{model::*, JsonDeserializeError},
         Synced,
     },
     serde::de::DeserializeOwned,
@@ -174,6 +174,14 @@ async fn run_command(
             });
 
             id(db, req_id).await
+        }
+        "gophersay" => {
+            let (req_id, ()) = extract!({
+                from: first_opt,
+                required: [id: u32],
+            });
+
+            gophersay(db, req_id).await
         }
         "list" => {
             let ((), (count, page)) = extract!({
