@@ -54,8 +54,35 @@ impl<D: MeigenDatabase> Console<D> {
                 Some(command::gophersay(Arc::clone(&self.db), id).await)
             }
 
+            "search" => {
+                let sub = splitted.next()?;
+
+                match sub {
+                    "author" => Some(
+                        command::search_author(
+                            Arc::clone(&self.db),
+                            splitted.next()?,
+                            splitted.next().map(|x| x.parse()).transpose().ok()?,
+                            splitted.next().map(|x| x.parse()).transpose().ok()?,
+                        )
+                        .await,
+                    ),
+
+                    "content" => Some(
+                        command::search_content(
+                            Arc::clone(&self.db),
+                            splitted.next()?,
+                            splitted.next().map(|x| x.parse()).transpose().ok()?,
+                            splitted.next().map(|x| x.parse()).transpose().ok()?,
+                        )
+                        .await,
+                    ),
+                    _ => None,
+                }
+            }
+
             // this can be written smarter with "or_patterns"
-            "make" | "search" | "help" | "id" | "list" | "random" | "status" | "delete" => {
+            "make" | "help" | "id" | "list" | "random" | "status" | "delete" => {
                 // TODO: support more command
                 unimplemented!(
                     "currently {} handler on console is unimplemented",

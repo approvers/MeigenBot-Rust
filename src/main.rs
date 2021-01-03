@@ -19,10 +19,7 @@ type Synced<T> = Arc<RwLock<T>>;
 fn main() -> Result<()> {
     dotenv::dotenv().ok();
 
-    let use_ansi = match env_var("NO_COLOR") {
-        Ok(_) => false,
-        Err(_) => true,
-    };
+    let use_ansi = env_var("NO_COLOR").is_err();
 
     tracing_subscriber::fmt()
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())

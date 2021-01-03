@@ -5,7 +5,7 @@ use {
         util::IteratorEditExt,
         Synced,
     },
-    anyhow::{Context, Result},
+    anyhow::{anyhow, Context as _, Result},
     rand::{rngs::StdRng, Rng, SeedableRng},
     std::{future::Future, pin::Pin},
 };
@@ -14,7 +14,7 @@ const MEIGEN_LENGTH_LIMIT: usize = 300;
 const LIST_LENGTH_LIMIT: usize = 400;
 
 trait IterExt {
-    fn fold_list(self) -> String;
+    fn fold_list(self) -> Option<String>;
 }
 
 impl<T, D> IterExt for T
@@ -22,7 +22,7 @@ where
     D: std::fmt::Display,
     T: Iterator<Item = D> + DoubleEndedIterator,
 {
-    fn fold_list(self) -> String {
+    fn fold_list(self) -> Option<String> {
         let (mut text, len) = self
             .rev()
             .fold((String::new(), 0), |(mut text, mut len), meigen| {
@@ -40,7 +40,10 @@ where
             text.insert_str(0, "結果が長すぎたため、一部の名言は省略されました。\n");
         }
 
-        text
+        match len {
+            0 => None,
+            _ => Some(text),
+        }
     }
 }
 
@@ -140,7 +143,11 @@ pub async fn random(db: Synced<impl MeigenDatabase>, count: Option<u8>) -> Resul
 
     meigens.sort_by_key(|x| x.id);
 
-    let mut msg = meigens.into_iter().fold_list();
+    let mut msg = meigens
+        .into_iter()
+        .fold_list()
+        .ok_or_else(|| anyhow!("random::get_random didn't bring any meigen"))?;
+
     msg.insert_str(0, clamp_msg);
 
     Ok(msg)
@@ -161,7 +168,7 @@ pub async fn make(db: Synced<impl MeigenDatabase>, author: &str, content: &str) 
     Ok(format!("{}", meigen))
 }
 
-async fn find(db: Synced<impl MeigenDatabase>, opt: FindOptions<'_>) -> Result<String> {
+async fn find(db: Synced<impl MeigenDatabase>, opt: FindOptions<'_>) -> Result<Option<String>> {
     Ok(db.read().await.find(opt).await?.into_iter().fold_list())
 }
 
@@ -189,7 +196,8 @@ pub async fn search_author(
         },
     )
     .await
-    .edit(|x| x.insert_str(0, clamp_msg))
+    .edit(|x: &mut String| x.insert_str(0, clamp_msg))
+    .map(|x| x.unwrap_or_else(|| "その条件に合致する名言は見つかりませんでした。".into()))
 }
 
 pub async fn search_content(
@@ -216,7 +224,8 @@ pub async fn search_content(
         },
     )
     .await
-    .edit(|x| x.insert_str(0, clamp_msg))
+    .edit(|x: &mut String| x.insert_str(0, clamp_msg))
+    .map(|x| x.unwrap_or_else(|| "その条件に合致する名言はみつかりませんでした。".into()))
 }
 
 pub async fn list(
@@ -242,7 +251,8 @@ pub async fn list(
         },
     )
     .await
-    .edit(|x| x.insert_str(0, clamp_msg))
+    .edit(|x: &mut String| x.insert_str(0, clamp_msg))
+    .map(|x| x.unwrap_or_else(|| "その条件に合致する名言はみつかりませんでした。".into()))
 }
 
 const KAWAEMON_DISCORD_USER_ID: u64 = 391857452360007680;
