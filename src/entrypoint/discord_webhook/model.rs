@@ -134,7 +134,7 @@ impl<'d> Visitor<'d> for RequestOptionVisitor {
                 }
 
                 RequestOptionField::Type => {
-                    if options.is_some() {
+                    if ty.is_some() {
                         return Err(Error::duplicate_field("type"));
                     }
 
