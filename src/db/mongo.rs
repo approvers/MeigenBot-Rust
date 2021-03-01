@@ -9,7 +9,7 @@ use {
         Client, Collection,
     },
     serde::{Deserialize, Serialize},
-    tokio::stream::StreamExt,
+    tokio_stream::StreamExt,
 };
 
 #[derive(Serialize, Deserialize)]
