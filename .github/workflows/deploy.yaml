@@ -1,0 +1,38 @@
+name: Deploy to GCR
+
+on:
+  push:
+    tags:
+      - v*
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+
+      - uses: google-github-actions/setup-gcloud@master
+        with:
+          service_account_key: ${{ secrets.gcp_credentials }}
+          export_default_credentials: true
+
+      - name: Get version
+        id: vars
+        run: echo ::set-output name=tag::${GITHUB_REF#refs/*/}
+
+      - name: Auth Docker
+        run: gcloud auth configure-docker
+
+      - name: Build and push Dockerimage
+        env:
+          IMAGE_NAME: gcr.io/${{ secrets.gcp_project_name }}/meigen_bot_rust:${{ steps.vars.outputs.tag }}
+        run: |
+          docker build -t $IMAGE_NAME .
+          docker push $IMAGE_NAME
+
+      - id: deploy
+        uses: google-github-actions/deploy-cloudrun@main
+        with:
+          image: gcr.io/${{ secrets.gcp_project_name }}/meigen_bot_rust:${{ steps.vars.outputs.tag }}
+          service: meigen-bot-rust
+          credentials: ${{ secrets.gcp_credentials }}
