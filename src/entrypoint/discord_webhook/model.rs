@@ -28,6 +28,8 @@ pub(super) struct RequestData {
 }
 
 pub(super) struct RequestOption {
+    #[allow(unused)]
+    pub(super) ty: Option<i32>,
     pub(super) name: String,
     pub(super) value: Option<String>,
     pub(super) options: Option<Vec<RequestOption>>,
@@ -52,6 +54,7 @@ enum RequestOptionField {
     Name,
     Value,
     Options,
+    Type,
 }
 
 impl<'d> serde::de::Deserialize<'d> for RequestOptionField {
@@ -59,7 +62,6 @@ impl<'d> serde::de::Deserialize<'d> for RequestOptionField {
     where
         D: Deserializer<'d>,
     {
-        // to make what this function do clear, we put this here instead of bottom
         deserializer.deserialize_identifier(RequestOptionFieldVisitor)
     }
 }
@@ -70,7 +72,7 @@ impl<'d> Visitor<'d> for RequestOptionFieldVisitor {
     type Value = RequestOptionField;
 
     fn expecting(&self, formatter: &mut Formatter) -> FmtResult {
-        write!(formatter, "name, value or options")
+        write!(formatter, "type, name, value or options")
     }
 
     fn visit_str<E>(self, value: &str) -> Result<RequestOptionField, E>
@@ -81,6 +83,7 @@ impl<'d> Visitor<'d> for RequestOptionFieldVisitor {
             "name" => Ok(RequestOptionField::Name),
             "value" => Ok(RequestOptionField::Value),
             "options" => Ok(RequestOptionField::Options),
+            "type" => Ok(RequestOptionField::Type),
             _ => Err(Error::unknown_field(value, REQUEST_OPTION_FIELDS)),
         }
     }
@@ -102,6 +105,7 @@ impl<'d> Visitor<'d> for RequestOptionVisitor {
         let mut name: Option<String> = None;
         let mut value: Option<RequestOptionValue> = None;
         let mut options: Option<Vec<RequestOption>> = None;
+        let mut ty: Option<i32> = None;
 
         while let Some(key) = map.next_key::<RequestOptionField>()? {
             match key {
@@ -128,12 +132,21 @@ impl<'d> Visitor<'d> for RequestOptionVisitor {
 
                     options = Some(map.next_value()?);
                 }
+
+                RequestOptionField::Type => {
+                    if options.is_some() {
+                        return Err(Error::duplicate_field("type"));
+                    }
+
+                    ty = Some(map.next_value()?);
+                }
             }
         }
 
         let name = name.ok_or_else(|| Error::missing_field("name"))?;
 
         Ok(RequestOption {
+            ty,
             name,
             value: value.map(|x| x.0),
             options,

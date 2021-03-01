@@ -14,10 +14,7 @@ use {
 
 fn try_parse<T: DeserializeOwned>(data: &str) -> Result<T, Rejection> {
     serde_json::from_str(data).map_err(|e| {
-        tracing::info!(
-            "failed to parse json. discord fault or your fault?: {:?}",
-            e
-        );
+        tracing::info!("failed to parse json: {:?}", e);
         custom_reject(JsonDeserializeError)
     })
 }
