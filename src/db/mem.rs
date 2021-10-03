@@ -1,10 +1,9 @@
-use {
-    crate::{
-        db::{FindOptions, MeigenDatabase},
-        model::Meigen,
-    },
-    anyhow::Result,
-    async_trait::async_trait,
+use anyhow::Result;
+use async_trait::async_trait;
+
+use crate::{
+    db::{FindOptions, MeigenDatabase},
+    model::Meigen,
 };
 
 pub struct MemoryMeigenDatabase {

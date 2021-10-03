@@ -1,13 +1,13 @@
-use {
-    crate::{command, db::MeigenDatabase, Synced},
-    anyhow::Result,
-    std::{
-        io::{stdin, stdout, Write},
-        sync::Arc,
-        time::Instant,
-    },
-    tokio::sync::RwLock,
+use std::{
+    io::{stdin, stdout, Write},
+    sync::Arc,
+    time::Instant,
 };
+
+use anyhow::Result;
+use tokio::sync::RwLock;
+
+use crate::{command, db::MeigenDatabase, Synced};
 
 pub struct Console<D: MeigenDatabase> {
     db: Synced<D>,

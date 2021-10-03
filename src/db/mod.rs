@@ -1,7 +1,12 @@
+#[cfg(feature = "memorydb")]
 pub mod mem;
+#[cfg(feature = "mongodb_")]
 pub mod mongo;
 
-use {crate::model::Meigen, anyhow::Result, async_trait::async_trait};
+use anyhow::Result;
+use async_trait::async_trait;
+
+use crate::model::Meigen;
 
 #[derive(Default)]
 pub struct FindOptions<'a> {

@@ -1,15 +1,15 @@
-use {
-    super::inject,
-    ring::signature::{UnparsedPublicKey, ED25519},
-    std::sync::Arc,
-    warp::{
-        http::StatusCode,
-        hyper::body::Bytes,
-        reject::{custom as reject_custom, Reject},
-        reply::{with_status as reply_with_status, WithStatus},
-        Filter, Rejection,
-    },
+use std::sync::Arc;
+
+use ring::signature::{UnparsedPublicKey, ED25519};
+use warp::{
+    http::StatusCode,
+    hyper::body::Bytes,
+    reject::{custom as reject_custom, Reject},
+    reply::{with_status as reply_with_status, WithStatus},
+    Filter, Rejection,
 };
+
+use super::inject;
 
 pub(super) fn filter(
     public_key_bytes: Vec<u8>,

@@ -1,9 +1,8 @@
-use {
-    serde::{
-        de::{Deserialize, Deserializer, Error, MapAccess, Visitor},
-        Deserialize as DeserializeMacro,
-    },
-    std::fmt::{Formatter, Result as FmtResult},
+use std::fmt::{Formatter, Result as FmtResult};
+
+use serde::{
+    de::{Deserialize, Deserializer, Error, MapAccess, Visitor},
+    Deserialize as DeserializeMacro,
 };
 
 #[derive(DeserializeMacro)]

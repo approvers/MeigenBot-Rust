@@ -1,13 +1,13 @@
-use {
-    crate::{
-        db::{FindOptions, MeigenDatabase},
-        model::Meigen,
-        util::IteratorEditExt,
-        Synced,
-    },
-    anyhow::{anyhow, Context as _, Result},
-    rand::{rngs::StdRng, Rng, SeedableRng},
-    std::{future::Future, pin::Pin},
+use std::{future::Future, pin::Pin};
+
+use anyhow::{anyhow, Context as _, Result};
+use rand::{rngs::StdRng, Rng, SeedableRng};
+
+use crate::{
+    db::{FindOptions, MeigenDatabase},
+    model::Meigen,
+    util::IteratorEditExt,
+    Synced,
 };
 
 const MEIGEN_LENGTH_LIMIT: usize = 300;

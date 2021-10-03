@@ -1,16 +1,15 @@
-use {
-    super::FindOptions,
-    crate::{db::MeigenDatabase, model::Meigen, util::IteratorEditExt},
-    anyhow::{Context, Result},
-    async_trait::async_trait,
-    mongodb::{
-        bson::{doc, from_document, Document},
-        options::ClientOptions,
-        Client, Collection,
-    },
-    serde::{Deserialize, Serialize},
-    tokio_stream::StreamExt,
+use anyhow::{Context, Result};
+use async_trait::async_trait;
+use mongodb::{
+    bson::{doc, from_document, Document},
+    options::ClientOptions,
+    Client, Collection,
 };
+use serde::{Deserialize, Serialize};
+use tokio_stream::StreamExt;
+
+use super::FindOptions;
+use crate::{db::MeigenDatabase, model::Meigen, util::IteratorEditExt};
 
 #[derive(Serialize, Deserialize, Clone)]
 struct MongoMeigen {
