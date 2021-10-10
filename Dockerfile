@@ -1,12 +1,9 @@
-FROM rust:alpine as BUILD
+FROM rust:1.55 as base
 
-RUN mkdir -p /src/src
-RUN apk add --no-cache alpine-sdk
-COPY ./Cargo.toml /src
-COPY ./src/ /src/src/
-RUN cd /src && cargo build --release
+COPY . /app/
+WORKDIR /app
+RUN cargo build --release --no-default-features --features mongodb_,discord_webhook --bin discord_webhook
 
-FROM alpine
-RUN mkdir -p /usr/local/bin
-COPY --from=BUILD /src/target/release/meigen_bot_rust /usr/local/bin/
-ENTRYPOINT [ "/usr/local/bin/meigen_bot_rust" ]
+FROM gcr.io/distroless/cc
+COPY --from=base /app/target/release/discord_webhook /usr/local/bin
+CMD ["/usr/local/bin/discord_webhook"]

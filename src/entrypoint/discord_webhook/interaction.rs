@@ -1,15 +1,14 @@
-use {
-    crate::{
-        db::MeigenDatabase,
-        entrypoint::discord_webhook::{model::*, JsonDeserializeError},
-        Synced,
-    },
-    serde::de::DeserializeOwned,
-    serde_json::json,
-    warp::{
-        reject::{custom as custom_reject, Rejection},
-        reply::{json as reply_json, Json},
-    },
+use serde::de::DeserializeOwned;
+use serde_json::json;
+use warp::{
+    reject::{custom as custom_reject, Rejection},
+    reply::{json as reply_json, Json},
+};
+
+use crate::{
+    db::MeigenDatabase,
+    entrypoint::discord_webhook::{model::*, JsonDeserializeError},
+    Synced,
 };
 
 fn try_parse<T: DeserializeOwned>(data: &str) -> Result<T, Rejection> {
@@ -44,13 +43,13 @@ pub(super) async fn on_interaction(
         }
     };
 
-    return Ok(reply_json(&json!({
+    Ok(reply_json(&json!({
         // ChannelMessageWithSource: respond with a message, showing the user's input
         "type": 4,
         "data": {
             "content": msg
         }
-    })));
+    })))
 }
 
 #[derive(Debug)]
@@ -63,7 +62,9 @@ async fn run_command(
     db: Synced<impl MeigenDatabase>,
     req: &Request,
 ) -> Result<String, RunCommandError> {
-    use {crate::command::*, RunCommandError::*};
+    use RunCommandError::*;
+
+    use crate::command::*;
 
     let first_opt = req
         .data

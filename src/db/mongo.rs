@@ -1,36 +1,35 @@
-use {
-    super::FindOptions,
-    crate::{db::MeigenDatabase, model::Meigen, util::IteratorEditExt},
-    anyhow::{Context, Result},
-    async_trait::async_trait,
-    mongodb::{
-        bson::{doc, from_document, to_document, Document},
-        options::ClientOptions,
-        Client, Collection,
-    },
-    serde::{Deserialize, Serialize},
-    tokio_stream::StreamExt,
+use anyhow::{Context, Result};
+use async_trait::async_trait;
+use mongodb::{
+    bson::{doc, from_document, Document},
+    options::ClientOptions,
+    Client, Collection,
 };
+use serde::{Deserialize, Serialize};
+use tokio_stream::StreamExt;
 
-#[derive(Serialize, Deserialize)]
+use super::FindOptions;
+use crate::{db::MeigenDatabase, model::Meigen, util::IteratorEditExt};
+
+#[derive(Serialize, Deserialize, Clone)]
 struct MongoMeigen {
     id: i64,
     author: String,
     content: String,
 }
 
-impl Into<Meigen> for MongoMeigen {
-    fn into(self) -> Meigen {
+impl From<MongoMeigen> for Meigen {
+    fn from(m: MongoMeigen) -> Meigen {
         Meigen {
-            id: self.id as _,
-            author: self.author,
-            content: self.content,
+            id: m.id as _,
+            author: m.author,
+            content: m.content,
         }
     }
 }
 
 pub struct MongoMeigenDatabase {
-    inner: Collection,
+    inner: Collection<MongoMeigen>,
 }
 
 impl MongoMeigenDatabase {
@@ -51,21 +50,22 @@ impl MongoMeigenDatabase {
 #[async_trait]
 impl MeigenDatabase for MongoMeigenDatabase {
     async fn save(&mut self, author: String, content: String) -> anyhow::Result<Meigen> {
+        // FIXME: use transaction
         let current_id = self
             .get_current_id()
             .await
             .context("failed to get current head meigen id")? as i64;
 
+        let id = current_id + 1;
+
         let meigen = MongoMeigen {
-            id: current_id + 1,
+            id,
             author,
             content,
         };
 
-        let doc = to_document(&meigen).context("failed to serialize meigen to bson document")?;
-
         self.inner
-            .insert_one(doc, None)
+            .insert_one(meigen.clone(), None)
             .await
             .context("failed to insert meigen")?;
 
@@ -76,11 +76,8 @@ impl MeigenDatabase for MongoMeigenDatabase {
         self.inner
             .find_one(doc! { "id": id }, None)
             .await
-            .context("failed to fetch meigen")?
-            .map(from_document::<MongoMeigen>)
-            .transpose()
-            .context("failed to deserialize meigen")
-            .map(|x| x.map(|x| x.into()))
+            .map(|x| x.map(Into::into))
+            .context("failed to find meigen")
     }
 
     async fn delete(&mut self, id: u32) -> anyhow::Result<bool> {
@@ -143,15 +140,17 @@ impl MeigenDatabase for MongoMeigenDatabase {
             )
             .await
             .context("failed to aggregate")?
-            .collect::<Result<Vec<_>, _>>()
-            .await
-            .context("failed to fetch aggregated documents")?
-            .into_iter()
-            .map(from_document::<MongoMeigen>)
+            .map(|x| x.context("failed to decode document"))
+            .map(|x| {
+                x.and_then(|x| {
+                    from_document::<MongoMeigen>(x).context("failed to deserialize document")
+                })
+            })
             .map(|x| x.map(|x| x.into()))
             .collect::<Result<Vec<Meigen>, _>>()
+            .await
             .edit(|x| x.sort_by_key(|x| x.id))
-            .context("failed to deserialize result")
+            .context("failed to fetch aggregated documents")
     }
 
     async fn count(&self) -> anyhow::Result<u32> {
