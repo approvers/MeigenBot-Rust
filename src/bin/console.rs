@@ -1,5 +1,3 @@
-mod discord_webhook;
-
 use anyhow::{bail, Context, Result};
 #[cfg(feature = "memorydb")]
 use meigen_bot_rust::db::mem::MemoryMeigenDatabase;
