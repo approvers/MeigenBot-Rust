@@ -1,9 +1,9 @@
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
 #[cfg(feature = "memorydb")]
 use meigen_bot_rust::db::mem::MemoryMeigenDatabase;
 #[cfg(feature = "mongodb_")]
 use meigen_bot_rust::db::mongo::MongoMeigenDatabase;
-use meigen_bot_rust::{db::MeigenDatabase, entrypoint::console::Console};
+use meigen_bot_rust::entrypoint::console::Console;
 
 #[cfg(all(not(feature = "memorydb"), not(feature = "mongodb_")))]
 compile_error!("memorydb OR mongodb must be enabled, not both.");
