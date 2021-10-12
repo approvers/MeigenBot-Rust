@@ -47,7 +47,7 @@ where
     }
 }
 
-/// clamps number, returns clamped number and message which is sent to User
+/// clamps number, returns clamped number and message which should be sent to User
 macro_rules! option {
     ({value: $value:ident, default: $default:literal, min: $min:literal, max: $max:literal $(,)?}) => {{
         match $value.unwrap_or($default) {

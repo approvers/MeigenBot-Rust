@@ -149,7 +149,7 @@ impl MeigenDatabase for MongoMeigenDatabase {
             .map(|x| x.map(|x| x.into()))
             .collect::<Result<Vec<Meigen>, _>>()
             .await
-            .edit(|x| x.sort_by_key(|x| x.id))
+            .edit(|x| x.sort_unstable_by_key(|x| x.id))
             .context("failed to fetch aggregated documents")
     }
 

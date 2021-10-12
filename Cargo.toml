@@ -24,16 +24,17 @@ serde_json = { version = "1", optional = true }
 ring = { version = "0.16", optional = true }
 hex = { version = "0.4", optional = true }
 warp = { version = "0.3", optional = true }
+reqwest = { version = "0.11", optional = true }
+async-stream = { version = "0.3", optional = true }
 
 [features]
 console = []
 memorydb = []
 mongodb_ = ["mongodb", "tokio-stream", "regex"]
 discord_webhook = ["warp", "hex", "ring", "serde_json"]
+api = ["warp", "reqwest", "serde_json", "async-stream", "tokio-stream"]
 
-dev = ["console", "memorydb"]
-prod = ["mongodb_", "discord_webhook"]
-default = ["prod"]
+default = ["api", "memorydb"]
 
 [profile.release]
 lto = true
@@ -48,3 +49,8 @@ required-features = ["discord_webhook"]
 name = "console"
 path = "src/bin/console.rs"
 required-features = ["console"]
+
+[[bin]]
+name = "http_api"
+path = "src/bin/http_api.rs"
+required-features = ["api"]
