@@ -1,14 +1,9 @@
 pub mod auth;
-
-use std::{convert::Infallible, net::SocketAddr, sync::Arc};
+pub mod warp;
 
 use anyhow::{Context as _, Result};
-use auth::Authenticator;
-use reqwest::StatusCode;
-use serde::{Deserialize};
-use tokio::sync::RwLock;
+use serde::Deserialize;
 use tokio_stream::StreamExt;
-use warp::{Filter, Rejection};
 
 use crate::{
     db::{FindOptions, MeigenDatabase},
@@ -19,108 +14,13 @@ use crate::{
 const SEARCH_STRING_LENGTH_LIMIT: usize = 100;
 const MAX_FETCH_COUNT: usize = 50;
 
-pub struct HttpApiServer<D: MeigenDatabase, A: Authenticator> {
-    db: Synced<D>,
-    auth: A,
-}
-
-impl<D: MeigenDatabase, A: Authenticator> HttpApiServer<D, A> {
-    pub fn new(db: D, auth: A) -> Self {
-        Self {
-            db: Arc::new(RwLock::new(db)),
-            auth,
-        }
-    }
-
-    pub async fn start(self, ip: impl Into<SocketAddr>) {
-        let route = warp::body::content_length_limit(3 * 1024)
-            .and(
-                warp::path!("v1" / u32)
-                    .and(warp::post())
-                    .and(auth_filter(self.auth.clone()))
-                    .and(inject(Arc::clone(&self.db)))
-                    .and_then(|a, b| async move { get(a, b).await.map_err(Rejection::from) })
-                    .map(|x| warp::reply::json(&x))
-                    .or(warp::path!("v1" / "random")
-                        .and(warp::post())
-                        .and(auth_filter(self.auth.clone()))
-                        .and(warp::query::query())
-                        .and(inject(Arc::clone(&self.db)))
-                        .and_then(|a, b| async { random(a, b).await.map_err(Rejection::from) })
-                        .map(|x| warp::reply::json(&x)))
-                    .or(warp::path!("v1" / "search")
-                        .and(warp::post())
-                        .and(auth_filter(self.auth.clone()))
-                        .and(warp::query::query())
-                        .and(inject(Arc::clone(&self.db)))
-                        .and_then(|a, b| async { search(a, b).await.map_err(Rejection::from) })
-                        .map(|x| warp::reply::json(&x))),
-            )
-            .recover(recover)
-            .with(warp::trace::request());
-
-        warp::serve(route).bind(ip.into()).await;
-    }
-}
-
-fn auth_filter<A: Authenticator>(auth: A) -> impl Filter<Extract = (), Error = Rejection> + Clone {
-    warp::header::header::<String>("gauth-token")
-        .and(inject(auth))
-        .and_then(|token: String, auth: A| async move {
-            auth.auth(&token)
-                .await
-                .map_err(|e| match e {
-                    auth::Error::Internal(e) => CustomError::Internal(e),
-                    auth::Error::InvalidToken => CustomError::Authentication,
-                })
-                .map_err(Into::<Rejection>::into)
-        })
-        .map(|_| ())
-        .untuple_one()
-}
-
-fn inject<T>(t: T) -> impl Filter<Extract = (T,), Error = Infallible> + Clone
-where
-    T: Send + Clone,
-{
-    warp::any().map(move || t.clone())
-}
-
 #[derive(Debug)]
 enum CustomError {
     Internal(anyhow::Error),
     Authentication,
-    NotFound,
     FetchLimitExceeded,
     SearchWordLengthLimitExceeded,
     TooBigOffset,
-}
-
-impl warp::reject::Reject for CustomError {}
-
-async fn recover(r: Rejection) -> Result<impl warp::Reply, Rejection> {
-    let (code, msg) = match r.find::<CustomError>() {
-        None => return Err(r),
-        Some(&CustomError::Internal(ref e)) => {
-            tracing::error!("internal error: {:#?}", e);
-            (StatusCode::INTERNAL_SERVER_ERROR, "internal server error")
-        }
-
-        Some(&CustomError::Authentication) => (StatusCode::UNAUTHORIZED, "unauthorized"),
-        Some(&CustomError::NotFound) => (StatusCode::NOT_FOUND, "not found such meigen"),
-        Some(&CustomError::FetchLimitExceeded) => {
-            (StatusCode::BAD_REQUEST, "attempted to get too many meigens")
-        }
-        Some(&CustomError::SearchWordLengthLimitExceeded) => {
-            (StatusCode::BAD_REQUEST, "search keyword is too long")
-        }
-        Some(&CustomError::TooBigOffset) => (StatusCode::BAD_REQUEST, "offset is too big"),
-    };
-
-    Ok(warp::reply::with_status(
-        warp::reply::json(&serde_json::json!({ "error": msg })),
-        code,
-    ))
 }
 
 async fn get(id: u32, db: Synced<impl MeigenDatabase>) -> Result<Option<Meigen>, CustomError> {
@@ -133,14 +33,16 @@ async fn get(id: u32, db: Synced<impl MeigenDatabase>) -> Result<Option<Meigen>,
 
 #[derive(Deserialize)]
 struct RandomRequest {
-    count: usize,
+    count: Option<usize>,
 }
 
 async fn random(
     body: RandomRequest,
     db: Synced<impl MeigenDatabase>,
 ) -> Result<Vec<Meigen>, CustomError> {
-    if body.count > MAX_FETCH_COUNT {
+    let count = body.count.unwrap_or(1);
+
+    if count > MAX_FETCH_COUNT {
         return Err(CustomError::FetchLimitExceeded.into());
     }
 
@@ -163,7 +65,7 @@ async fn random(
             }
         }
     }
-    .take(body.count)
+    .take(count)
     .collect::<Result<Vec<_>, anyhow::Error>>()
     .await
     .context("failed to fetch stream")
@@ -176,8 +78,8 @@ async fn random(
 
 #[derive(Deserialize)]
 struct FindRequest {
-    offset: u32,
-    limit: u8,
+    offset: Option<u32>,
+    limit: Option<u8>,
     author: Option<String>,
     content: Option<String>,
 }
@@ -186,7 +88,10 @@ async fn search(
     body: FindRequest,
     db: Synced<impl MeigenDatabase>,
 ) -> Result<Vec<Meigen>, CustomError> {
-    if body.limit as usize > MAX_FETCH_COUNT {
+    let limit = body.limit.unwrap_or(5);
+    let offset = body.offset.unwrap_or(0);
+
+    if limit as usize > MAX_FETCH_COUNT {
         return Err(CustomError::FetchLimitExceeded.into());
     }
 
@@ -208,16 +113,18 @@ async fn search(
         return Err(CustomError::SearchWordLengthLimitExceeded.into());
     }
 
-    let max = db
-        .read()
-        .await
-        .get_current_id()
-        .await
-        .context("failed to get current id")
-        .map_err(CustomError::Internal)?;
+    if offset > 0 {
+        let max = db
+            .read()
+            .await
+            .get_current_id()
+            .await
+            .context("failed to get current id")
+            .map_err(CustomError::Internal)?;
 
-    if body.offset > max {
-        return Err(CustomError::TooBigOffset.into());
+        if offset > max {
+            return Err(CustomError::TooBigOffset.into());
+        }
     }
 
     let list = db
@@ -226,8 +133,8 @@ async fn search(
         .find(FindOptions {
             author: body.author.as_ref().map(|x| x as _),
             content: body.content.as_ref().map(|x| x as _),
-            offset: body.offset,
-            limit: body.limit,
+            offset,
+            limit,
         })
         .await
         .context("failed to find")

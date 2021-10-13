@@ -3,7 +3,11 @@ use anyhow::{Context, Result};
 use meigen_bot_rust::db::mem::MemoryMeigenDatabase;
 #[cfg(feature = "mongodb_")]
 use meigen_bot_rust::db::mongo::MongoMeigenDatabase;
-use meigen_bot_rust::entrypoint::api::{auth::GAuth, HttpApiServer};
+#[cfg(feature = "api_auth_always_pass")]
+use meigen_bot_rust::entrypoint::api::auth::AlwaysPass;
+#[cfg(not(feature = "api_auth_always_pass"))]
+use meigen_bot_rust::entrypoint::api::auth::GAuth;
+use meigen_bot_rust::entrypoint::api::warp::HttpApiServer;
 
 #[cfg(all(not(feature = "memorydb"), not(feature = "mongodb_")))]
 compile_error!("memorydb OR mongodb must be enabled, not both.");
@@ -47,10 +51,15 @@ async fn async_main() -> Result<()> {
         .parse()
         .unwrap();
 
-    let gauth_endpoint = env_var("GAUTH_ENDPOINT")?;
-    let gauth_endpoint: &'static str = Box::leak(gauth_endpoint.into_boxed_str());
+    #[cfg(not(feature = "api_auth_always_pass"))]
+    let authenticator = {
+        let gauth_endpoint = env_var("GAUTH_ENDPOINT")?;
+        let gauth_endpoint: &'static str = Box::leak(gauth_endpoint.into_boxed_str());
+        GAuth::new(gauth_endpoint)
+    };
 
-    let authenticator = GAuth::new(gauth_endpoint);
+    #[cfg(feature = "api_auth_always_pass")]
+    let authenticator = AlwaysPass;
 
     HttpApiServer::new(db, authenticator)
         .start(([0, 0, 0, 0], port))

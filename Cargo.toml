@@ -34,7 +34,9 @@ mongodb_ = ["mongodb", "tokio-stream", "regex"]
 discord_webhook = ["warp", "hex", "ring", "serde_json"]
 api = ["warp", "reqwest", "serde_json", "async-stream", "tokio-stream"]
 
-default = ["api", "memorydb"]
+api_auth_always_pass = []
+
+default = ["api", "memorydb", "api_auth_always_pass"]
 
 [profile.release]
 lto = true

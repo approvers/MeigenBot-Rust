@@ -5,6 +5,7 @@ use async_trait::async_trait;
 use reqwest::StatusCode;
 use serde::Deserialize;
 
+#[allow(dead_code)]
 #[derive(Deserialize)]
 pub struct Credential {
     user_id: String,
@@ -75,5 +76,19 @@ impl Authenticator for GAuth<'static> {
                 body
             ))),
         }
+    }
+}
+
+#[cfg(feature = "api_auth_always_pass")]
+#[derive(Clone)]
+pub struct AlwaysPass;
+
+#[cfg(feature = "api_auth_always_pass")]
+#[async_trait]
+impl Authenticator for AlwaysPass {
+    async fn auth(&self, _token: &str) -> Result<Credential, Error> {
+        Ok(Credential {
+            user_id: String::new(),
+        })
     }
 }
