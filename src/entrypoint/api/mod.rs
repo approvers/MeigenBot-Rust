@@ -1,6 +1,9 @@
 pub mod auth;
 pub mod warp;
 
+#[cfg(feature = "api_graphql")]
+mod graphql;
+
 use anyhow::{Context as _, Result};
 use serde::Deserialize;
 use tokio_stream::StreamExt;
