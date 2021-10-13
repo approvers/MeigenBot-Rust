@@ -1,62 +1,60 @@
-use std::{convert::Infallible, net::SocketAddr, sync::Arc, time::Duration};
+pub mod auth;
+
+use std::{convert::Infallible, net::SocketAddr, sync::Arc};
 
 use anyhow::{Context as _, Result};
+use auth::Authenticator;
 use reqwest::StatusCode;
-use serde::{de::DeserializeOwned, Deserialize};
+use serde::{Deserialize};
 use tokio::sync::RwLock;
 use tokio_stream::StreamExt;
 use warp::{Filter, Rejection};
 
 use crate::{
     db::{FindOptions, MeigenDatabase},
+    model::Meigen,
     Synced,
 };
 
 const SEARCH_STRING_LENGTH_LIMIT: usize = 100;
 const MAX_FETCH_COUNT: usize = 50;
 
-pub struct HttpApi<D: MeigenDatabase> {
+pub struct HttpApiServer<D: MeigenDatabase, A: Authenticator> {
     db: Synced<D>,
-    gauth_endpoint: String,
-    client: reqwest::Client,
+    auth: A,
 }
 
-impl<D: MeigenDatabase> HttpApi<D> {
-    pub fn new(db: D, gauth_endpoint: String) -> Self {
+impl<D: MeigenDatabase, A: Authenticator> HttpApiServer<D, A> {
+    pub fn new(db: D, auth: A) -> Self {
         Self {
             db: Arc::new(RwLock::new(db)),
-            gauth_endpoint,
-            client: reqwest::ClientBuilder::new()
-                .connect_timeout(Duration::from_secs(5))
-                .timeout(Duration::from_secs(5))
-                .build()
-                .unwrap(),
+            auth,
         }
     }
 
     pub async fn start(self, ip: impl Into<SocketAddr>) {
-        // gauth endpoint should be so small, and this function is not intended to be called many
-        // times, so this should not be big problem.
-        let gauth_endpoint: &'static str = Box::leak(self.gauth_endpoint.into_boxed_str());
-        let client = self.client;
-
         let route = warp::body::content_length_limit(3 * 1024)
             .and(
                 warp::path!("v1" / u32)
                     .and(warp::post())
-                    .and(auth_filter(client.clone(), gauth_endpoint))
+                    .and(auth_filter(self.auth.clone()))
                     .and(inject(Arc::clone(&self.db)))
-                    .and_then(get)
+                    .and_then(|a, b| async move { get(a, b).await.map_err(Rejection::from) })
+                    .map(|x| warp::reply::json(&x))
                     .or(warp::path!("v1" / "random")
                         .and(warp::post())
-                        .and(auth_filter(client.clone(), gauth_endpoint))
+                        .and(auth_filter(self.auth.clone()))
+                        .and(warp::query::query())
                         .and(inject(Arc::clone(&self.db)))
-                        .and_then(random))
+                        .and_then(|a, b| async { random(a, b).await.map_err(Rejection::from) })
+                        .map(|x| warp::reply::json(&x)))
                     .or(warp::path!("v1" / "search")
                         .and(warp::post())
-                        .and(auth_filter(client.clone(), gauth_endpoint))
+                        .and(auth_filter(self.auth.clone()))
+                        .and(warp::query::query())
                         .and(inject(Arc::clone(&self.db)))
-                        .and_then(search)),
+                        .and_then(|a, b| async { search(a, b).await.map_err(Rejection::from) })
+                        .map(|x| warp::reply::json(&x))),
             )
             .recover(recover)
             .with(warp::trace::request());
@@ -65,17 +63,20 @@ impl<D: MeigenDatabase> HttpApi<D> {
     }
 }
 
-fn auth_filter<'a, T: 'a>(
-    client: reqwest::Client,
-    endpoint: &'a str,
-) -> impl Filter<Extract = (T,), Error = Rejection> + Clone + 'a
-where
-    T: AsRef<AuthToken> + DeserializeOwned + Send,
-{
-    warp::body::json::<T>()
-        .and(inject(client))
-        .and(inject(endpoint))
-        .and_then(auth)
+fn auth_filter<A: Authenticator>(auth: A) -> impl Filter<Extract = (), Error = Rejection> + Clone {
+    warp::header::header::<String>("gauth-token")
+        .and(inject(auth))
+        .and_then(|token: String, auth: A| async move {
+            auth.auth(&token)
+                .await
+                .map_err(|e| match e {
+                    auth::Error::Internal(e) => CustomError::Internal(e),
+                    auth::Error::InvalidToken => CustomError::Authentication,
+                })
+                .map_err(Into::<Rejection>::into)
+        })
+        .map(|_| ())
+        .untuple_one()
 }
 
 fn inject<T>(t: T) -> impl Filter<Extract = (T,), Error = Infallible> + Clone
@@ -122,106 +123,23 @@ async fn recover(r: Rejection) -> Result<impl warp::Reply, Rejection> {
     ))
 }
 
-fn internal_error(e: anyhow::Error) -> Rejection {
-    CustomError::Internal(e).into()
-}
-
-#[derive(Deserialize)]
-struct AuthToken {
-    token: String,
-}
-
-impl AsRef<AuthToken> for AuthToken {
-    fn as_ref(&self) -> &AuthToken {
-        &self
-    }
-}
-macro_rules! as_auth_token {
-    ($name: ident) => {
-        impl AsRef<AuthToken> for $name {
-            fn as_ref(&self) -> &AuthToken {
-                &self.auth
-            }
-        }
-    };
-}
-
-async fn auth<T>(request_body: T, client: reqwest::Client, endpoint: &str) -> Result<T, Rejection>
-where
-    T: AsRef<AuthToken>,
-{
-    let token = &request_body.as_ref().token;
-
-    let result = client
-        .post(endpoint)
-        .body(serde_json::json!({ "token": token }).to_string())
-        .send()
+async fn get(id: u32, db: Synced<impl MeigenDatabase>) -> Result<Option<Meigen>, CustomError> {
+    db.read()
         .await
-        .context("failed to send auth request")
-        .map_err(internal_error)?;
-
-    let status = result.status();
-    let body = result
-        .text()
+        .load(id)
         .await
-        .context("failed to receive body")
-        .map_err(internal_error)?;
-
-    #[derive(Deserialize)]
-    struct Response {
-        #[allow(dead_code)]
-        user_id: String,
-    }
-
-    match status {
-        StatusCode::OK => {
-            let _response = serde_json::from_str(&body)
-                .context("failed to deserialize response json")
-                .map_err(internal_error)?;
-
-            Ok(request_body)
-        }
-
-        StatusCode::UNAUTHORIZED => Err(CustomError::Authentication.into()),
-
-        p => Err(internal_error(anyhow::anyhow!(
-            "auth request failed: status: {}, body: {}",
-            p,
-            body
-        ))),
-    }
-}
-
-async fn get(
-    id: u32,
-    _: AuthToken,
-    db: Synced<impl MeigenDatabase>,
-) -> Result<impl warp::Reply, Rejection> {
-    let entry = db.read().await.load(id).await.map_err(internal_error)?;
-
-    if let Some(m) = entry {
-        Ok(warp::reply::with_status(
-            warp::reply::json(&m),
-            StatusCode::OK,
-        ))
-    } else {
-        Err(CustomError::NotFound.into())
-    }
+        .map_err(CustomError::Internal)
 }
 
 #[derive(Deserialize)]
 struct RandomRequest {
-    #[serde(flatten)]
-    auth: AuthToken,
     count: usize,
 }
-
-as_auth_token!(RandomRequest);
 
 async fn random(
     body: RandomRequest,
     db: Synced<impl MeigenDatabase>,
-) -> Result<impl warp::Reply, Rejection> {
+) -> Result<Vec<Meigen>, CustomError> {
     if body.count > MAX_FETCH_COUNT {
         return Err(CustomError::FetchLimitExceeded.into());
     }
@@ -232,7 +150,7 @@ async fn random(
         .get_current_id()
         .await
         .context("failed to get current id")
-        .map_err(internal_error)?;
+        .map_err(CustomError::Internal)?;
 
     let mut list = async_stream::try_stream! {
         use rand::prelude::*;
@@ -249,30 +167,25 @@ async fn random(
     .collect::<Result<Vec<_>, anyhow::Error>>()
     .await
     .context("failed to fetch stream")
-    .map_err(internal_error)?;
+    .map_err(CustomError::Internal)?;
 
     list.sort_unstable_by_key(|x| x.id);
 
-    Ok(warp::reply::json(&list))
+    Ok(list)
 }
 
 #[derive(Deserialize)]
 struct FindRequest {
-    #[serde(flatten)]
-    auth: AuthToken,
-
     offset: u32,
     limit: u8,
     author: Option<String>,
     content: Option<String>,
 }
 
-as_auth_token!(FindRequest);
-
 async fn search(
     body: FindRequest,
     db: Synced<impl MeigenDatabase>,
-) -> Result<impl warp::Reply, Rejection> {
+) -> Result<Vec<Meigen>, CustomError> {
     if body.limit as usize > MAX_FETCH_COUNT {
         return Err(CustomError::FetchLimitExceeded.into());
     }
@@ -301,7 +214,7 @@ async fn search(
         .get_current_id()
         .await
         .context("failed to get current id")
-        .map_err(internal_error)?;
+        .map_err(CustomError::Internal)?;
 
     if body.offset > max {
         return Err(CustomError::TooBigOffset.into());
@@ -318,7 +231,7 @@ async fn search(
         })
         .await
         .context("failed to find")
-        .map_err(internal_error)?;
+        .map_err(CustomError::Internal)?;
 
-    Ok(warp::reply::json(&list))
+    Ok(list)
 }

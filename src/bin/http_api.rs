@@ -3,7 +3,7 @@ use anyhow::{Context, Result};
 use meigen_bot_rust::db::mem::MemoryMeigenDatabase;
 #[cfg(feature = "mongodb_")]
 use meigen_bot_rust::db::mongo::MongoMeigenDatabase;
-use meigen_bot_rust::entrypoint::api::HttpApi;
+use meigen_bot_rust::entrypoint::api::{auth::GAuth, HttpApiServer};
 
 #[cfg(all(not(feature = "memorydb"), not(feature = "mongodb_")))]
 compile_error!("memorydb OR mongodb must be enabled, not both.");
@@ -48,8 +48,11 @@ async fn async_main() -> Result<()> {
         .unwrap();
 
     let gauth_endpoint = env_var("GAUTH_ENDPOINT")?;
+    let gauth_endpoint: &'static str = Box::leak(gauth_endpoint.into_boxed_str());
 
-    HttpApi::new(db, gauth_endpoint)
+    let authenticator = GAuth::new(gauth_endpoint);
+
+    HttpApiServer::new(db, authenticator)
         .start(([0, 0, 0, 0], port))
         .await;
 
