@@ -23,11 +23,11 @@ tokio-stream = { version = "0.1", optional = true }
 serde_json = { version = "1", optional = true }
 ring = { version = "0.16", optional = true }
 hex = { version = "0.4", optional = true }
-warp = { git = "https://github.com/kawaemon/warp.git", optional = true }
-reqwest = { version = "0.11", optional = true }
 async-stream = { version = "0.3", optional = true }
 juniper = { git = "https://github.com/kawaemon/juniper.git", optional = true }
 juniper_warp = { git = "https://github.com/kawaemon/juniper.git", optional = true }
+warp = { git = "https://github.com/kawaemon/warp.git", optional = true, default-features = false, features = ["compression", "trace-log"] }
+reqwest = { version = "0.11", optional = true, default-features = false, features = ["rustls-tls"] }
 
 [features]
 console = []
