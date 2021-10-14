@@ -5,7 +5,7 @@ use juniper::{
 };
 
 use super::CustomError;
-use crate::{db::MeigenDatabase, entrypoint::api::auth::Authenticator, model, Synced};
+use crate::{db::MeigenDatabase, model, Synced};
 
 #[derive(GraphQLObject)]
 #[graphql(description = "A great sentence someone created via Discord Bot")]
@@ -35,48 +35,37 @@ impl From<Meigen> for model::Meigen {
     }
 }
 
-pub(crate) fn schema<A, D>() -> Schema<A, D>
+pub(crate) fn schema<D>() -> Schema<D>
 where
-    A: Authenticator,
     D: MeigenDatabase,
 {
     Schema::new(Query::new(), EmptyMutation::new(), EmptySubscription::new())
 }
 
-pub(crate) struct Context<A, D> {
+pub(crate) struct Context<D> {
     pub(crate) db: Synced<D>,
-    pub(crate) auth: A,
 }
 
-impl<A, D> Clone for Context<A, D>
+impl<D> Clone for Context<D>
 where
-    A: Authenticator,
     D: MeigenDatabase,
 {
     fn clone(&self) -> Self {
         Self {
             db: Arc::clone(&self.db),
-            auth: self.auth.clone(),
         }
     }
 }
 
-impl<A, D> juniper::Context for Context<A, D>
-where
-    A: Authenticator,
-    D: MeigenDatabase,
-{
-}
+impl<D> juniper::Context for Context<D> where D: MeigenDatabase {}
 
-pub(crate) struct Query<A, D> {
-    _phantom_auth: PhantomData<fn() -> A>,
+pub(crate) struct Query<D> {
     _phantom_db: PhantomData<fn() -> D>,
 }
 
-impl<A, D> Query<A, D> {
+impl<D> Query<D> {
     fn new() -> Self {
         Self {
-            _phantom_auth: PhantomData,
             _phantom_db: PhantomData,
         }
     }
@@ -99,13 +88,12 @@ fn into_field_error(e: CustomError) -> FieldError {
     }
 }
 
-#[graphql_object(context = Context<A, D>)]
-impl<A, D> Query<A, D>
+#[graphql_object(context = Context<D>)]
+impl<D> Query<D>
 where
-    A: Authenticator,
     D: MeigenDatabase,
 {
-    async fn get(context: &Context<A, D>, id: i32) -> FieldResult<Option<Meigen>> {
+    async fn get(context: &Context<D>, id: i32) -> FieldResult<Option<Meigen>> {
         match super::get(id as u32, Arc::clone(&context.db)).await {
             Ok(Some(v)) => Ok(Some(v.into())),
             Ok(None) => Ok(None),
@@ -114,9 +102,5 @@ where
     }
 }
 
-type Schema<A, D> = juniper::RootNode<
-    'static,
-    Query<A, D>,
-    EmptyMutation<Context<A, D>>,
-    EmptySubscription<Context<A, D>>,
->;
+type Schema<D> =
+    juniper::RootNode<'static, Query<D>, EmptyMutation<Context<D>>, EmptySubscription<Context<D>>>;
