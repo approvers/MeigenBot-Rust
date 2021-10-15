@@ -52,7 +52,7 @@ where
 
         Server::builder()
             .add_service(MeigenApiServer::new(self))
-            .serve(ip.into())
+            .serve(ip)
             .await
             .context("failed to start server")
     }
@@ -155,16 +155,16 @@ where
 }
 
 fn into_status(c: CustomError) -> Status {
-    let code = match &c {
-        &CustomError::Internal(ref e) => {
+    let code = match c {
+        CustomError::Internal(ref e) => {
             tracing::error!("internal error: {:#?}", e);
             Code::Internal
         }
 
-        &CustomError::SearchWordLengthLimitExceeded => Code::InvalidArgument,
-        &CustomError::FetchLimitExceeded => Code::InvalidArgument,
-        &CustomError::TooBigOffset => Code::OutOfRange,
-        &CustomError::Authentication => Code::Unauthenticated,
+        CustomError::SearchWordLengthLimitExceeded => Code::InvalidArgument,
+        CustomError::FetchLimitExceeded => Code::InvalidArgument,
+        CustomError::TooBigOffset => Code::OutOfRange,
+        CustomError::Authentication => Code::Unauthenticated,
     };
 
     Status::new(code, c.describe())
