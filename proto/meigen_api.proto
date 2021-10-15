@@ -1,0 +1,45 @@
+syntax = "proto3";
+
+package meigen_api;
+
+service MeigenApi {
+    rpc Get(GetRequest) returns (GetResponse) {}
+
+    rpc Random(RandomRequest) returns (RandomResponse) {}
+
+    rpc Search(SearchRequest) returns (SearchResponse) {}
+}
+
+
+message Meigen {
+    uint32 id = 1;
+    string author = 2;
+    string content = 3;
+}
+
+message GetRequest {
+    uint32 id = 1;
+}
+
+message GetResponse {
+    optional Meigen meigen = 1;
+}
+
+message RandomRequest {
+    optional uint32 count = 1;
+}
+
+message RandomResponse {
+    repeated Meigen meigen = 1;
+}
+
+message SearchRequest {
+    optional uint32 offset = 1;
+    optional uint32 limit = 2;
+    optional string author = 3;
+    optional string content = 4;
+}
+
+message SearchResponse {
+    repeated Meigen meigen = 1;
+}

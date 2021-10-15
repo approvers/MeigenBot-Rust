@@ -72,20 +72,7 @@ impl<D> Query<D> {
 }
 
 fn into_field_error(e: CustomError) -> FieldError {
-    match e {
-        CustomError::Internal(_) => FieldError::new("internal server error", Value::Null),
-
-        CustomError::TooBigOffset => FieldError::new("offset is too big", Value::Null),
-        CustomError::Authentication => FieldError::new("unauthorized", Value::Null),
-
-        CustomError::FetchLimitExceeded => {
-            FieldError::new("attempted to get too many meigens", Value::Null)
-        }
-
-        CustomError::SearchWordLengthLimitExceeded => {
-            FieldError::new("search keyword is too long", Value::Null)
-        }
-    }
+    FieldError::new(e.describe(), Value::Null)
 }
 
 #[graphql_object(context = Context<D>)]

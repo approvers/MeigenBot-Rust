@@ -28,6 +28,11 @@ juniper = { git = "https://github.com/kawaemon/juniper.git", optional = true }
 juniper_warp = { git = "https://github.com/kawaemon/juniper.git", optional = true }
 warp = { git = "https://github.com/kawaemon/warp.git", optional = true, default-features = false, features = ["compression", "trace-log"] }
 reqwest = { version = "0.11", optional = true, default-features = false, features = ["rustls-tls"] }
+tonic = { version = "0.5", optional = true }
+prost = { version = "0.8", optional = true }
+
+[build-dependencies]
+tonic-build = { version = "0.5", optional = true }
 
 [features]
 console = []
@@ -35,12 +40,14 @@ memorydb = []
 mongodb_ = ["mongodb", "tokio-stream", "regex"]
 discord_webhook = ["warp", "hex", "ring", "serde_json"]
 
-api = ["warp", "reqwest", "serde_json", "async-stream", "tokio-stream"]
-api_graphql = ["juniper", "juniper_warp"]
+api = ["reqwest", "async-stream", "tokio-stream", "serde_json"]
+api_http = ["warp"]
+api_graphql = ["api_http", "juniper", "juniper_warp"]
+api_grpc = ["tonic", "prost", "tonic-build"]
 
 api_auth_always_pass = []
 
-default = ["api", "mongodb_", "api_graphql"]
+default = ["api", "mongodb_", "api_grpc"]
 
 [profile.release]
 lto = true
@@ -59,4 +66,4 @@ required-features = ["console"]
 [[bin]]
 name = "http_api"
 path = "src/bin/http_api.rs"
-required-features = ["api"]
+required-features = ["api_graphql"]

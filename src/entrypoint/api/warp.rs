@@ -144,23 +144,22 @@ async fn recover(r: Rejection) -> Result<impl warp::Reply, Rejection> {
         ));
     }
 
-    let (code, msg) = match r.find::<CustomError>() {
+    let ce = r.find::<CustomError>();
+
+    let (code, msg) = match ce {
         None => return Err(r),
         Some(&CustomError::Internal(ref e)) => {
             tracing::error!("internal error: {:#?}", e);
-            (StatusCode::INTERNAL_SERVER_ERROR, "internal server error")
-        }
-
-        Some(&CustomError::FetchLimitExceeded) => {
-            (StatusCode::BAD_REQUEST, "attempted to get too many meigens")
+            (StatusCode::INTERNAL_SERVER_ERROR, ce.describe())
         }
 
         Some(&CustomError::SearchWordLengthLimitExceeded) => {
-            (StatusCode::BAD_REQUEST, "search keyword is too long")
+            (StatusCode::BAD_REQUEST, ce.describe())
         }
 
-        Some(&CustomError::TooBigOffset) => (StatusCode::BAD_REQUEST, "offset is too big"),
-        Some(&CustomError::Authentication) => (StatusCode::UNAUTHORIZED, "unauthorized"),
+        Some(&CustomError::FetchLimitExceeded) => (StatusCode::BAD_REQUEST, ce.describe()),
+        Some(&CustomError::TooBigOffset) => (StatusCode::BAD_REQUEST, ce.describe()),
+        Some(&CustomError::Authentication) => (StatusCode::UNAUTHORIZED, ce.describe()),
     };
 
     Ok(warp::reply::with_status(

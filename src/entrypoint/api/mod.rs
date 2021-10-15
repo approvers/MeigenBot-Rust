@@ -1,5 +1,10 @@
 pub mod auth;
+
+#[cfg(feature = "api_http")]
 pub mod warp;
+
+#[cfg(feature = "api_grpc")]
+pub mod grpc;
 
 #[cfg(feature = "api_graphql")]
 mod graphql;
@@ -24,6 +29,18 @@ enum CustomError {
     FetchLimitExceeded,
     SearchWordLengthLimitExceeded,
     TooBigOffset,
+}
+
+impl CustomError {
+    fn describe(&self) -> &'static str {
+        match self {
+            &CustomError::Internal(_) => "internal server error",
+            &CustomError::FetchLimitExceeded => "attempted to get too many meigens",
+            &CustomError::SearchWordLengthLimitExceeded => "search keyword is too long",
+            &CustomError::TooBigOffset => "offset is too big",
+            &CustomError::Authentication => "unauthorized",
+        }
+    }
 }
 
 async fn get(id: u32, db: Synced<impl MeigenDatabase>) -> Result<Option<Meigen>, CustomError> {
@@ -80,7 +97,7 @@ async fn random(
 }
 
 #[derive(Deserialize)]
-struct FindRequest {
+struct SearchRequest {
     offset: Option<u32>,
     limit: Option<u8>,
     author: Option<String>,
@@ -88,7 +105,7 @@ struct FindRequest {
 }
 
 async fn search(
-    body: FindRequest,
+    body: SearchRequest,
     db: Synced<impl MeigenDatabase>,
 ) -> Result<Vec<Meigen>, CustomError> {
     let limit = body.limit.unwrap_or(5);
