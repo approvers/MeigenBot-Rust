@@ -1,11 +1,13 @@
-use std::{convert::TryInto, sync::Arc};
+use std::{convert::TryInto, net::SocketAddr, sync::Arc};
 
+use anyhow::Context as _;
 use async_trait::async_trait;
 use protobuf::{
-    meigen_api_server::MeigenApi, GetRequest, GetResponse, RandomRequest, RandomResponse,
-    SearchRequest, SearchResponse,
+    meigen_api_server::{MeigenApi, MeigenApiServer},
+    GetRequest, GetResponse, RandomRequest, RandomResponse, SearchRequest, SearchResponse,
 };
-use tonic::{Code, Request, Response, Status};
+use tokio::sync::RwLock;
+use tonic::{transport::Server, Code, Request, Response, Status};
 
 use super::{
     auth::{self, Authenticator},
@@ -37,6 +39,24 @@ where
     A: Authenticator,
     D: MeigenDatabase,
 {
+    pub fn new(db: D, auth: A) -> Self {
+        Self {
+            db: Arc::new(RwLock::new(db)),
+            auth,
+        }
+    }
+
+    pub async fn start(self, ip: impl Into<SocketAddr>) -> anyhow::Result<()> {
+        let ip = ip.into();
+        tracing::info!("starting grpc server at {}", ip);
+
+        Server::builder()
+            .add_service(MeigenApiServer::new(self))
+            .serve(ip.into())
+            .await
+            .context("failed to start server")
+    }
+
     async fn auth<T>(&self, request: &tonic::Request<T>) -> Result<(), Status> {
         let token = request
             .metadata()
