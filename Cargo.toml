@@ -41,13 +41,11 @@ mongodb_ = ["mongodb", "tokio-stream", "regex"]
 discord_webhook = ["warp", "hex", "ring", "serde_json"]
 
 api = ["reqwest", "async-stream", "tokio-stream", "serde_json"]
-api_http = ["warp"]
+api_http = ["warp", "api"]
 api_graphql = ["api_http", "juniper", "juniper_warp"]
-api_grpc = ["tonic", "prost", "tonic-build"]
+api_grpc = ["api", "tonic", "prost", "tonic-build"]
 
 api_auth_always_pass = []
-
-default = ["api", "mongodb_", "api_grpc"]
 
 [profile.release]
 lto = true
@@ -67,3 +65,8 @@ required-features = ["console"]
 name = "http_api"
 path = "src/bin/http_api.rs"
 required-features = ["api_graphql"]
+
+[[bin]]
+name = "grpc_api"
+path = "src/bin/grpc_api.rs"
+required-features = ["api_grpc"]
