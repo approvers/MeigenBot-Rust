@@ -33,12 +33,12 @@ enum CustomError {
 
 impl CustomError {
     fn describe(&self) -> &'static str {
-        match self {
-            &CustomError::Internal(_) => "internal server error",
-            &CustomError::FetchLimitExceeded => "attempted to get too many meigens",
-            &CustomError::SearchWordLengthLimitExceeded => "search keyword is too long",
-            &CustomError::TooBigOffset => "offset is too big",
-            &CustomError::Authentication => "unauthorized",
+        match *self {
+            CustomError::Internal(_) => "internal server error",
+            CustomError::FetchLimitExceeded => "attempted to get too many meigens",
+            CustomError::SearchWordLengthLimitExceeded => "search keyword is too long",
+            CustomError::TooBigOffset => "offset is too big",
+            CustomError::Authentication => "unauthorized",
         }
     }
 }
@@ -63,7 +63,7 @@ async fn random(
     let count = body.count.unwrap_or(1);
 
     if count > MAX_FETCH_COUNT {
-        return Err(CustomError::FetchLimitExceeded.into());
+        return Err(CustomError::FetchLimitExceeded);
     }
 
     let max = db
@@ -112,7 +112,7 @@ async fn search(
     let offset = body.offset.unwrap_or(0);
 
     if limit as usize > MAX_FETCH_COUNT {
-        return Err(CustomError::FetchLimitExceeded.into());
+        return Err(CustomError::FetchLimitExceeded);
     }
 
     if body
@@ -121,7 +121,7 @@ async fn search(
         .map(|x| x.chars().count() > SEARCH_STRING_LENGTH_LIMIT)
         .unwrap_or(false)
     {
-        return Err(CustomError::SearchWordLengthLimitExceeded.into());
+        return Err(CustomError::SearchWordLengthLimitExceeded);
     }
 
     if body
@@ -130,7 +130,7 @@ async fn search(
         .map(|x| x.chars().count() > SEARCH_STRING_LENGTH_LIMIT)
         .unwrap_or(false)
     {
-        return Err(CustomError::SearchWordLengthLimitExceeded.into());
+        return Err(CustomError::SearchWordLengthLimitExceeded);
     }
 
     if offset > 0 {
@@ -143,7 +143,7 @@ async fn search(
             .map_err(CustomError::Internal)?;
 
         if offset > max {
-            return Err(CustomError::TooBigOffset.into());
+            return Err(CustomError::TooBigOffset);
         }
     }
 

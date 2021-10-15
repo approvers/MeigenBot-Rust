@@ -149,17 +149,17 @@ async fn recover(r: Rejection) -> Result<impl warp::Reply, Rejection> {
         None => return Err(r),
     };
 
-    let (code, msg) = match ce {
-        &CustomError::Internal(ref e) => {
+    let (code, msg) = match *ce {
+        CustomError::Internal(ref e) => {
             tracing::error!("internal error: {:#?}", e);
             (StatusCode::INTERNAL_SERVER_ERROR, ce.describe())
         }
 
-        &CustomError::SearchWordLengthLimitExceeded => (StatusCode::BAD_REQUEST, ce.describe()),
+        CustomError::SearchWordLengthLimitExceeded => (StatusCode::BAD_REQUEST, ce.describe()),
 
-        &CustomError::FetchLimitExceeded => (StatusCode::BAD_REQUEST, ce.describe()),
-        &CustomError::TooBigOffset => (StatusCode::BAD_REQUEST, ce.describe()),
-        &CustomError::Authentication => (StatusCode::UNAUTHORIZED, ce.describe()),
+        CustomError::FetchLimitExceeded => (StatusCode::BAD_REQUEST, ce.describe()),
+        CustomError::TooBigOffset => (StatusCode::BAD_REQUEST, ce.describe()),
+        CustomError::Authentication => (StatusCode::UNAUTHORIZED, ce.describe()),
     };
 
     Ok(warp::reply::with_status(

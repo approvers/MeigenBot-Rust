@@ -68,7 +68,7 @@ impl Authenticator for GAuth<'static> {
                 Ok(response)
             }
 
-            StatusCode::UNAUTHORIZED => Err(Error::InvalidToken.into()),
+            StatusCode::UNAUTHORIZED => Err(Error::InvalidToken),
 
             p => Err(Error::Internal(anyhow::anyhow!(
                 "auth request failed: status: {}, body: {}",

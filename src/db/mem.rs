@@ -6,6 +6,7 @@ use crate::{
     model::Meigen,
 };
 
+#[derive(Default)]
 pub struct MemoryMeigenDatabase {
     inner: Vec<Meigen>,
 }
