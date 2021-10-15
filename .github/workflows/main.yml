@@ -20,7 +20,9 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           args: --features memorydb,console,discord_webhook,api_graphql,api_grpc
+          name: memmorydb
       - uses: actions-rs/clippy-check@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           args: --features mongodb_,console,discord_webhook,api_graphql,api_grpc
+          name: mongodb
