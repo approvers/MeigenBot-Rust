@@ -23,14 +23,14 @@ jobs:
       - name: Auth Docker
         run: gcloud auth configure-docker
 
-      - name: Build and push Dockerimage
+      - name: Build and push Docker Image
         env:
           IMAGE_NAME: gcr.io/${{ secrets.gcp_project_name }}/meigen_bot_rust:${{ steps.vars.outputs.tag }}
         run: |
-          docker build -t $IMAGE_NAME .
+          docker build -t $IMAGE_NAME --target discord_webhook .
           docker push $IMAGE_NAME
 
-      - id: deploy
+      - id: Deploy
         uses: google-github-actions/deploy-cloudrun@main
         with:
           image: gcr.io/${{ secrets.gcp_project_name }}/meigen_bot_rust:${{ steps.vars.outputs.tag }}
