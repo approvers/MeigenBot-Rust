@@ -6,6 +6,7 @@ use crate::{
     model::Meigen,
 };
 
+#[derive(Default)]
 pub struct MemoryMeigenDatabase {
     inner: Vec<Meigen>,
 }
@@ -38,6 +39,15 @@ impl MeigenDatabase for MemoryMeigenDatabase {
 
     async fn load(&self, id: u32) -> Result<Option<Meigen>> {
         Ok(self.inner.iter().find(|x| x.id == id).cloned())
+    }
+
+    async fn load_bulk(&self, id: &[u32]) -> Result<Vec<Meigen>> {
+        Ok(self
+            .inner
+            .iter()
+            .filter(|x| id.iter().any(|&y| y == x.id))
+            .cloned()
+            .collect())
     }
 
     async fn delete(&mut self, id: u32) -> Result<bool> {

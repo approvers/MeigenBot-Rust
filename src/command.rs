@@ -1,7 +1,5 @@
-use std::{future::Future, pin::Pin};
-
 use anyhow::{anyhow, Context as _, Result};
-use rand::{rngs::StdRng, Rng, SeedableRng};
+use rand::{prelude::SmallRng, Rng, SeedableRng};
 
 use crate::{
     db::{FindOptions, MeigenDatabase},
@@ -47,7 +45,7 @@ where
     }
 }
 
-/// clamps number, returns clamped number and message which is sent to User
+/// clamps number, returns clamped number and message which should be sent to User
 macro_rules! option {
     ({value: $value:ident, default: $default:literal, min: $min:literal, max: $max:literal $(,)?}) => {{
         match $value.unwrap_or($default) {
@@ -118,30 +116,41 @@ pub async fn random(db: Synced<impl MeigenDatabase>, count: Option<u8>) -> Resul
         max: 5,
     });
 
-    fn get_random<'a>(
-        db: &'a Synced<impl MeigenDatabase>,
-        max: u32,
-    ) -> Pin<Box<dyn Future<Output = Result<Meigen>> + Send + 'a>> {
-        Box::pin(async move {
-            let pos = StdRng::from_rng(&mut rand::thread_rng())
-                .unwrap()
-                .gen_range(1..=max);
-
-            match db.read().await.load(pos).await? {
-                Some(e) => Ok(e),
-                None => get_random(db, max).await,
-            }
-        })
-    }
-
-    let mut meigens = Vec::with_capacity(count as _);
+    let count = count as usize;
     let max = db.read().await.get_current_id().await?;
 
-    for _ in 0..count {
-        meigens.push(get_random(&db, max).await?);
+    if count > max as usize {
+        return Ok("countが総名言数を超えています。".into());
     }
 
-    meigens.sort_by_key(|x| x.id);
+    let mut rng = SmallRng::from_rng(&mut rand::thread_rng()).unwrap();
+
+    let mut meigens = Vec::<Meigen>::with_capacity(count);
+
+    while meigens.len() != count {
+        let want = meigens.len() - count;
+        let mut try_fetch = Vec::with_capacity(want);
+
+        loop {
+            let new_id_candidate = rng.gen_range(1..=max);
+
+            if try_fetch.contains(&new_id_candidate) {
+                continue;
+            }
+
+            if meigens.iter().any(|x| x.id == new_id_candidate) {
+                continue;
+            }
+
+            try_fetch.push(new_id_candidate);
+            if try_fetch.len() == want {
+                break;
+            }
+        }
+
+        let mut fetched = db.read().await.load_bulk(&try_fetch).await?;
+        meigens.append(&mut fetched);
+    }
 
     let mut msg = meigens
         .into_iter()

@@ -20,6 +20,7 @@ pub struct FindOptions<'a> {
 pub trait MeigenDatabase: Send + Sync + 'static {
     async fn save(&mut self, author: String, content: String) -> Result<Meigen>;
     async fn load(&self, id: u32) -> Result<Option<Meigen>>;
+    async fn load_bulk(&self, id: &[u32]) -> Result<Vec<Meigen>>;
     async fn delete(&mut self, id: u32) -> Result<bool>;
 
     async fn get_current_id(&self) -> Result<u32>;

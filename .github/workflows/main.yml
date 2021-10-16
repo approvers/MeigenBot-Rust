@@ -14,13 +14,15 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
             toolchain: nightly
-            components: clippy
+            components: clippy, rustfmt
             override: true
       - uses: actions-rs/clippy-check@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          args: --features memorydb,console,discord_webhook
+          args: --features memorydb,console,discord_webhook,api_graphql,api_grpc
+          name: memorydb
       - uses: actions-rs/clippy-check@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          args: --features mondogb_,console,discord_webhook
+          args: --features mongodb_,console,discord_webhook,api_graphql,api_grpc
+          name: mongodb
