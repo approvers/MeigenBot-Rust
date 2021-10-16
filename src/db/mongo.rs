@@ -80,6 +80,17 @@ impl MeigenDatabase for MongoMeigenDatabase {
             .context("failed to find meigen")
     }
 
+    async fn load_bulk(&self, id: &[u32]) -> anyhow::Result<Vec<Meigen>> {
+        self.inner
+            .find(doc! { "id": { "$in": id } }, None)
+            .await
+            .context("failed to make find request")?
+            .map(|x| x.map(From::from))
+            .collect::<Result<Vec<_>, _>>()
+            .await
+            .context("failed to decode meigen")
+    }
+
     async fn delete(&mut self, id: u32) -> anyhow::Result<bool> {
         self.inner
             .delete_one(doc! { "id": id }, None)
@@ -146,7 +157,7 @@ impl MeigenDatabase for MongoMeigenDatabase {
                     from_document::<MongoMeigen>(x).context("failed to deserialize document")
                 })
             })
-            .map(|x| x.map(|x| x.into()))
+            .map(|x| x.map(From::from))
             .collect::<Result<Vec<Meigen>, _>>()
             .await
             .edit(|x| x.sort_unstable_by_key(|x| x.id))

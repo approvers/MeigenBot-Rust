@@ -10,8 +10,8 @@ pub mod grpc;
 mod graphql;
 
 use anyhow::{Context as _, Result};
+use rand::{prelude::SmallRng, Rng, SeedableRng};
 use serde::Deserialize;
-use tokio_stream::StreamExt;
 
 use crate::{
     db::{FindOptions, MeigenDatabase},
@@ -61,39 +61,55 @@ async fn random(
     db: Synced<impl MeigenDatabase>,
 ) -> Result<Vec<Meigen>, CustomError> {
     let count = body.count.unwrap_or(1);
-
-    if count > MAX_FETCH_COUNT {
-        return Err(CustomError::FetchLimitExceeded);
-    }
-
     let max = db
         .read()
         .await
         .get_current_id()
         .await
         .context("failed to get current id")
-        .map_err(CustomError::Internal)?;
+        .map_err(CustomError::Internal)? as usize;
 
-    let mut list = async_stream::try_stream! {
-        use rand::prelude::*;
-        let mut rng = StdRng::from_rng(&mut rand::thread_rng()).unwrap();
+    if count > MAX_FETCH_COUNT || count > max {
+        return Err(CustomError::FetchLimitExceeded);
+    }
+
+    let mut rng = SmallRng::from_rng(&mut rand::thread_rng()).unwrap();
+
+    let mut meigens = Vec::<Meigen>::with_capacity(count);
+
+    while meigens.len() != count {
+        let want = count - meigens.len();
+        let mut try_fetch = Vec::with_capacity(want);
+
         loop {
-            let pos = rng.gen_range(1..=max);
+            let new_id_candidate = rng.gen_range(1..=max as u32);
 
-            if let Some(m) = db.read().await.load(pos).await.context("failed to fetch meigen")? {
-                yield m;
+            if try_fetch.contains(&new_id_candidate) {
+                continue;
+            }
+
+            if meigens.iter().any(|x| x.id == new_id_candidate) {
+                continue;
+            }
+
+            try_fetch.push(new_id_candidate);
+            if try_fetch.len() == want {
+                break;
             }
         }
+
+        let mut fetched = db
+            .read()
+            .await
+            .load_bulk(&try_fetch)
+            .await
+            .context("failed to failed to bulk load")
+            .map_err(CustomError::Internal)?;
+
+        meigens.append(&mut fetched);
     }
-    .take(count)
-    .collect::<Result<Vec<_>, anyhow::Error>>()
-    .await
-    .context("failed to fetch stream")
-    .map_err(CustomError::Internal)?;
 
-    list.sort_unstable_by_key(|x| x.id);
-
-    Ok(list)
+    Ok(meigens)
 }
 
 #[derive(Deserialize)]

@@ -41,6 +41,15 @@ impl MeigenDatabase for MemoryMeigenDatabase {
         Ok(self.inner.iter().find(|x| x.id == id).cloned())
     }
 
+    async fn load_bulk(&self, id: &[u32]) -> Result<Vec<Meigen>> {
+        Ok(self
+            .inner
+            .iter()
+            .filter(|x| id.iter().any(|&y| y == x.id))
+            .cloned()
+            .collect())
+    }
+
     async fn delete(&mut self, id: u32) -> Result<bool> {
         let pos = self.inner.iter().position(|x| x.id == id);
 
