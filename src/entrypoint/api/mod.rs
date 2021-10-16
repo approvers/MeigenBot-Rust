@@ -115,21 +115,17 @@ async fn search(
         return Err(CustomError::FetchLimitExceeded);
     }
 
-    if body
-        .author
-        .as_ref()
-        .map(|x| x.chars().count() > SEARCH_STRING_LENGTH_LIMIT)
-        .unwrap_or(false)
-    {
+    let check_word_len = |x: &Option<String>| {
+        x.as_ref()
+            .map(|x| x.chars().count() > SEARCH_STRING_LENGTH_LIMIT)
+            .unwrap_or(false)
+    };
+
+    if check_word_len(&body.author) {
         return Err(CustomError::SearchWordLengthLimitExceeded);
     }
 
-    if body
-        .content
-        .as_ref()
-        .map(|x| x.chars().count() > SEARCH_STRING_LENGTH_LIMIT)
-        .unwrap_or(false)
-    {
+    if check_word_len(&body.content) {
         return Err(CustomError::SearchWordLengthLimitExceeded);
     }
 
