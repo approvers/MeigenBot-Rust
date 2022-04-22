@@ -162,8 +162,27 @@ async fn run_command(
                 }
                 _ => return Err(InvalidRequest("unexpected subcommand for search command")),
             }
-        }
+        },
+        "love" => {
+            let (req_id, ()) = extract!({
+                from: first_opt,
+                required: [id: u32],
+            });
 
+            let user_id = get_requesting_user_id(req)?;
+
+            love(db, req_id, user_id).await
+        },
+        "unlove" => {
+            let (req_id, ()) = extract!({
+                from: first_opt,
+                required: [id: u32],
+            });
+
+            let user_id = get_requesting_user_id(req)?;
+
+            unlove(db, req_id, user_id).await
+        },
         "help" => help().await,
         "id" => {
             let (req_id, ()) = extract!({
@@ -204,17 +223,21 @@ async fn run_command(
                 required: [id: u32],
             });
 
-            let id = match req.member.user.id.parse() {
-                Ok(v) => v,
-                Err(e) => {
-                    tracing::info!("failed to deserialize request.member.user.id: {}", e);
-                    return Err(InvalidRequest("user id was invalid"));
-                }
-            };
+            let id = get_requesting_user_id(req)?;
 
             delete(db, meigenid, id).await
         }
         _ => return Err(InvalidRequest("unexpected subcommand")),
     }
     .map_err(InternalServerError)
+}
+
+fn get_requesting_user_id(req: &Request) -> Result<u64, RunCommandError> {
+    match req.member.user.id.parse::<u64>() {
+        Ok(v) => Ok(v),
+        Err(e) => {
+            tracing::info!("failed to deserialize request.member.user.id: {}", e);
+            Err(RunCommandError::InvalidRequest("user id was invalid"))
+        }
+    }
 }
