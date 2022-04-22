@@ -353,3 +353,33 @@ pub async fn gophersay(db: Synced<impl MeigenDatabase>, id: u32) -> Result<Strin
 
     Ok(msg)
 }
+
+pub async fn love(db: Synced<impl MeigenDatabase>, id: u32, from_user_id: &str) -> Result<String> {
+    let updated = db
+        .write()
+        .await
+        .append_loved_user(id, from_user_id)
+        .await
+        .context("failed to append the loved user id")?;
+
+    Ok(if updated {
+        "いいねをしました。"
+    } else {
+        "いいねできませんでした。名言がないか、既にいいねをしています。"
+    }.into())
+}
+
+pub async fn unlove(db: Synced<impl MeigenDatabase>, id: u32, from_user_id: &str) -> Result<String> {
+    let updated = db
+        .write()
+        .await
+        .remove_loved_user(id, from_user_id)
+        .await
+        .context("failed to append the loved user id")?;
+
+    Ok(if updated {
+        "いいねを取り消しました。"
+    } else {
+        "いいねを取り消しできませんでした。名言がないか、もともといいねをしていませんでした。"
+    }.into())
+}
