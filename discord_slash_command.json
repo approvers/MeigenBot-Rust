@@ -79,6 +79,32 @@
             ]
         },
         {
+            "name": "love",
+            "description": "'love' the meigen",
+            "type": 1,
+            "options": [
+                {
+                    "name": "id",
+                    "description": "MeigenID which you are loving",
+                    "type": 4,
+                    "required": true
+                }
+            ]
+        },
+        {
+            "name": "unlove",
+            "description": "cancel the love the meigen",
+            "type": 1,
+            "options": [
+                {
+                    "name": "id",
+                    "description": "MeigenID which you are no longer loving",
+                    "type": 4,
+                    "required": true
+                }
+            ]
+        },
+        {
             "name": "help",
             "description": "Show help",
             "type": 1
