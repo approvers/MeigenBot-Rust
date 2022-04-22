@@ -94,17 +94,42 @@ impl MeigenDatabase for MemoryMeigenDatabase {
         Ok(self.inner.len() as _)
     }
 
-    async fn set_loved_user(&mut self, id: u32, from_user: &[&str]) -> Result<bool> {
-        let mut meigen = self.inner.iter()
-            .find(|m| m.id == id)
-            .as_mut();
+    async fn append_loved_user(&mut self, id: u32, loved_user_id: &str) -> Result<bool> {
+        let mut meigen = self.inner.iter_mut()
+            .find(|x| x.id == loved_user_id);
 
-        if let None = meigen {
+        if meigen.is_none() {
+            return Ok(false);
+        }
+        let mut meigen = meigen.unwrap();
+
+        if meigen.is_loving(loved_user_id) {
             return Ok(false);
         }
 
-        meigen.loved_user_id = from_user.clone();
+        meigen.loved_user_id.push(loved_user_id.to_owned());
 
         Ok(true)
+    }
+
+    async fn remove_loved_user(&mut self, id: u32, loved_user_id: &str) -> Result<bool> {
+        let mut meigen = self.inner.iter_mut()
+            .find(|x| x.id == loved_user_id);
+
+        if meigen.is_none() {
+            return Ok(false)
+        }
+        let mut meigen = meigen.unwrap();
+
+        let pos = meigen.loved_user_id.iter()
+            .position(|id| id == loved_user_id);
+
+        match pos {
+            Ok(p) => {
+                meigen.loved_user_id.remove(p);
+                Ok(true)
+            },
+            None => Ok(false)
+        }
     }
 }

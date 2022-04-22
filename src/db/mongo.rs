@@ -186,15 +186,25 @@ impl MeigenDatabase for MongoMeigenDatabase {
             .map(|x| x as u32)
     }
 
-    async fn set_loved_user(&mut self, id: u32, from_user: &[&str]) -> Result<bool> {
+    async fn append_loved_user(&mut self, id: u32, loved_user_id: &str) -> Result<bool> {
         self.inner
             .update_one(
                 doc! { "id": id },
-                doc! { "$set": { "loved_user_id": from_user } },
-                None
+                doc! { "$push": { "loved_user_id": loved_user_id } }
             )
             .await
-            .context("failed to modify meigen")
+            .context("failed to append loved user id")
+            .map(|x| x.modified_count == 1)
+    }
+
+    async fn remove_loved_user(&mut self, id: u32, loved_user_id: &str) -> Result<bool> {
+        self.inner
+            .update_one(
+                doc! { "id": id },
+                doc! { "$pull": { "loved_user_id": loved_user_id } }
+            )
+            .await
+            .context("failed to remove loved user id")
             .map(|x| x.modified_count == 1)
     }
 }
