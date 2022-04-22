@@ -15,26 +15,6 @@ impl Meigen {
     pub fn is_loving(&self, user_id: u64) -> bool {
         self.loved_user_id.iter().any(|&id| id == user_id)
     }
-
-    pub fn love(&mut self, from: u64) -> Option<()> {
-        if self.is_loving(from) {
-            return None;
-        }
-
-        self.loved_user_id.push(from);
-        Some(())
-    }
-
-
-    pub fn unlove(&mut self, from: u64) -> Option<()> {
-        if !self.is_loving(from) {
-            return None;
-        }
-
-        let position = self.loved_user_id.iter().position(|&id| id == from)?;
-        self.loved_user_id.remove(position);
-        Some(())
-    }
 }
 
 impl std::fmt::Display for Meigen {
