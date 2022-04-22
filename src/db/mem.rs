@@ -93,4 +93,18 @@ impl MeigenDatabase for MemoryMeigenDatabase {
     async fn count(&self) -> Result<u32> {
         Ok(self.inner.len() as _)
     }
+
+    async fn set_loved_user(&mut self, id: u32, from_user: &[&str]) -> Result<bool> {
+        let mut meigen = self.inner.iter()
+            .find(|m| m.id == id)
+            .as_mut();
+
+        if let None = meigen {
+            return Ok(false);
+        }
+
+        meigen.loved_user_id = from_user.clone();
+
+        Ok(true)
+    }
 }

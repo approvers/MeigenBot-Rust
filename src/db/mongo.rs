@@ -185,4 +185,16 @@ impl MeigenDatabase for MongoMeigenDatabase {
             .context("returned document's id property wasn't i64")
             .map(|x| x as u32)
     }
+
+    async fn set_loved_user(&mut self, id: u32, from_user: &[&str]) -> Result<bool> {
+        self.inner
+            .update_one(
+                doc! { "id": id },
+                doc! { "$set": { "loved_user_id": from_user } },
+                None
+            )
+            .await
+            .context("failed to modify meigen")
+            .map(|x| x.modified_count == 1)
+    }
 }

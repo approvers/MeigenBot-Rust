@@ -28,4 +28,6 @@ pub trait MeigenDatabase: Send + Sync + 'static {
     async fn find(&self, options: FindOptions<'_>) -> Result<Vec<Meigen>>;
 
     async fn count(&self) -> Result<u32>;
+
+    async fn set_loved_user(&mut self, id: u32, loved_user: &[&str]) -> Result<bool>;
 }
