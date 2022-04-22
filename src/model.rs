@@ -1,39 +1,37 @@
 use serde::{Deserialize, Serialize};
 
-type DiscordUserID = string;
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Meigen {
     pub id: u32,
     pub author: String,
     pub content: String,
-    pub loved_user_id: Vec<DiscordUserID>
+    pub loved_user_id: Vec<String>
 }
 impl Meigen {
     pub fn loves(&self) -> usize {
-        self.loved_discord_user_id.len()
+        self.loved_user_id.len()
     }
 
-    pub fn is_loving(&self, user_id: DiscordUserID) -> bool {
-        self.loved_discord_user_id.iter().any(|&id| id == discord_user_id)
+    pub fn is_loving(&self, user_id: &str) -> bool {
+        self.loved_user_id.iter().any(|id| id == user_id)
     }
 
-    pub fn love(&mut self, from: DiscordUserID) -> Option<()> {
+    pub fn love(&mut self, from: &str) -> Option<()> {
         if self.is_loving(from) {
             return None;
         }
 
-        self.loved_user_id.append(from);
+        self.loved_user_id.push(from.to_owned());
         Some(())
     }
 
 
-    pub fn unlove(&mut self, from: DiscordUserID) -> Option<()> {
+    pub fn unlove(&mut self, from: &str) -> Option<()> {
         if !self.is_loving(from) {
             return None;
         }
 
-        let position = self.loved_user_id.iter().position(|&id| id == from)?;
+        let position = self.loved_user_id.iter().position(|id| id == from)?;
         self.loved_user_id.remove(position);
         Some(())
     }
