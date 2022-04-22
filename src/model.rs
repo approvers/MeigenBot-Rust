@@ -13,7 +13,7 @@ impl Meigen {
     }
 
     pub fn is_loving(&self, user_id: u64) -> bool {
-        self.loved_user_id.iter().any(|id| id == user_id)
+        self.loved_user_id.iter().any(|&id| id == user_id)
     }
 
     pub fn love(&mut self, from: u64) -> Option<()> {
@@ -31,7 +31,7 @@ impl Meigen {
             return None;
         }
 
-        let position = self.loved_user_id.iter().position(|id| id == from)?;
+        let position = self.loved_user_id.iter().position(|&id| id == from)?;
         self.loved_user_id.remove(position);
         Some(())
     }

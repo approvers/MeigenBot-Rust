@@ -190,7 +190,8 @@ impl MeigenDatabase for MongoMeigenDatabase {
         self.inner
             .update_one(
                 doc! { "id": id },
-                doc! { "$push": { "loved_user_id": loved_user_id } }
+                doc! { "$addToSet": { "loved_user_id": loved_user_id as u32 } },
+                None
             )
             .await
             .context("failed to append loved user id")
@@ -201,7 +202,8 @@ impl MeigenDatabase for MongoMeigenDatabase {
         self.inner
             .update_one(
                 doc! { "id": id },
-                doc! { "$pull": { "loved_user_id": loved_user_id } }
+                doc! { "$pull": { "loved_user_id": loved_user_id as u32 } },
+                None
             )
             .await
             .context("failed to remove loved user id")
