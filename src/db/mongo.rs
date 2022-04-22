@@ -16,6 +16,10 @@ struct MongoMeigen {
     id: i64,
     author: String,
     content: String,
+
+    // Added in v0.3. The attribute is for the forward compatibility.
+    #[serde(default)]
+    loved_user_id: Vec<String>
 }
 
 impl From<MongoMeigen> for Meigen {
@@ -24,6 +28,7 @@ impl From<MongoMeigen> for Meigen {
             id: m.id as _,
             author: m.author,
             content: m.content,
+            loved_user_id: m.loved_user_id,
         }
     }
 }
@@ -62,6 +67,7 @@ impl MeigenDatabase for MongoMeigenDatabase {
             id,
             author,
             content,
+            loved_user_id: Vec::new()
         };
 
         self.inner
