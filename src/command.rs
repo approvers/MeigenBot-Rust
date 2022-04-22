@@ -354,7 +354,7 @@ pub async fn gophersay(db: Synced<impl MeigenDatabase>, id: u32) -> Result<Strin
     Ok(msg)
 }
 
-pub async fn love(db: Synced<impl MeigenDatabase>, id: u32, from_user_id: &str) -> Result<String> {
+pub async fn love(db: Synced<impl MeigenDatabase>, id: u32, from_user_id: u64) -> Result<String> {
     let updated = db
         .write()
         .await
@@ -369,7 +369,7 @@ pub async fn love(db: Synced<impl MeigenDatabase>, id: u32, from_user_id: &str) 
     }.into())
 }
 
-pub async fn unlove(db: Synced<impl MeigenDatabase>, id: u32, from_user_id: &str) -> Result<String> {
+pub async fn unlove(db: Synced<impl MeigenDatabase>, id: u32, from_user_id: u64) -> Result<String> {
     let updated = db
         .write()
         .await

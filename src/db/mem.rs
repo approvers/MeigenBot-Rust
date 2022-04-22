@@ -94,9 +94,9 @@ impl MeigenDatabase for MemoryMeigenDatabase {
         Ok(self.inner.len() as _)
     }
 
-    async fn append_loved_user(&mut self, id: u32, loved_user_id: &str) -> Result<bool> {
+    async fn append_loved_user(&mut self, id: u32, loved_user_id: u64) -> Result<bool> {
         let mut meigen = self.inner.iter_mut()
-            .find(|x| x.id == loved_user_id);
+            .find(|x| x.id == id);
 
         if meigen.is_none() {
             return Ok(false);
@@ -107,14 +107,14 @@ impl MeigenDatabase for MemoryMeigenDatabase {
             return Ok(false);
         }
 
-        meigen.loved_user_id.push(loved_user_id.to_owned());
+        meigen.loved_user_id.push(loved_user_id);
 
         Ok(true)
     }
 
-    async fn remove_loved_user(&mut self, id: u32, loved_user_id: &str) -> Result<bool> {
+    async fn remove_loved_user(&mut self, id: u32, loved_user_id: u64) -> Result<bool> {
         let mut meigen = self.inner.iter_mut()
-            .find(|x| x.id == loved_user_id);
+            .find(|x| x.id == id);
 
         if meigen.is_none() {
             return Ok(false)

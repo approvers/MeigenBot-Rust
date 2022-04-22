@@ -19,7 +19,7 @@ struct MongoMeigen {
 
     // Added in v0.3. The attribute is for the forward compatibility.
     #[serde(default)]
-    loved_user_id: Vec<String>
+    loved_user_id: Vec<u64>
 }
 
 impl From<MongoMeigen> for Meigen {
@@ -186,7 +186,7 @@ impl MeigenDatabase for MongoMeigenDatabase {
             .map(|x| x as u32)
     }
 
-    async fn append_loved_user(&mut self, id: u32, loved_user_id: &str) -> Result<bool> {
+    async fn append_loved_user(&mut self, id: u32, loved_user_id: u64) -> Result<bool> {
         self.inner
             .update_one(
                 doc! { "id": id },
@@ -197,7 +197,7 @@ impl MeigenDatabase for MongoMeigenDatabase {
             .map(|x| x.modified_count == 1)
     }
 
-    async fn remove_loved_user(&mut self, id: u32, loved_user_id: &str) -> Result<bool> {
+    async fn remove_loved_user(&mut self, id: u32, loved_user_id: u64) -> Result<bool> {
         self.inner
             .update_one(
                 doc! { "id": id },
