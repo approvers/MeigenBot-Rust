@@ -19,14 +19,21 @@ impl Meigen {
 
 impl std::fmt::Display for Meigen {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let loves = self.loves();
+        let loves_description = if loves > 0 {
+            format!("(♥ x{})", loves)
+        } else {
+            "".to_string()
+        };
+
         write!(
             f,
-            "Meigen No.{}
+            "Meigen No.{} {}
 ```
 {}
     --- {}
 ```",
-            self.id, self.content, self.author
+            self.id, loves_description, self.content, self.author
         )
     }
 }
