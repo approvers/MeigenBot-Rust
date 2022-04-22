@@ -30,6 +30,7 @@ impl MeigenDatabase for MemoryMeigenDatabase {
             id: id + 1,
             author,
             content,
+            loved_user_id: Vec::new()
         };
 
         self.inner.push(meigen.clone());
