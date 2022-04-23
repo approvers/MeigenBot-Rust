@@ -23,7 +23,7 @@ impl From<model::Meigen> for Meigen {
             id: m.id as i32,
             author: m.author,
             content: m.content,
-            loved_user_id: m.loved_user_id.
+            loved_user_id: m.loved_user_id.iter().map(|&x| x as i32).collect(),
         }
     }
 }
@@ -34,7 +34,7 @@ impl From<Meigen> for model::Meigen {
             id: m.id as u32,
             author: m.author,
             content: m.content,
-            loved_user_id: m.loved_user_id.into()
+            loved_user_id: m.loved_user_id.iter().map(|&x| x as u64).collect(),
         }
     }
 }
