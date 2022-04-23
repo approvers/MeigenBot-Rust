@@ -96,7 +96,7 @@ impl MeigenDatabase for MemoryMeigenDatabase {
 
     async fn append_loved_user(&mut self, id: u32, loved_user_id: u64) -> Result<bool> {
         let mut meigen = self.inner.iter_mut()
-            .find(|x| x.id == id);
+            .find(|&x| x.id == id);
 
         if meigen.is_none() {
             return Ok(false);
@@ -114,7 +114,7 @@ impl MeigenDatabase for MemoryMeigenDatabase {
 
     async fn remove_loved_user(&mut self, id: u32, loved_user_id: u64) -> Result<bool> {
         let mut meigen = self.inner.iter_mut()
-            .find(|x| x.id == id);
+            .find(|&x| x.id == id);
 
         if meigen.is_none() {
             return Ok(false)
