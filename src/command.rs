@@ -357,6 +357,17 @@ pub async fn gophersay(db: Synced<impl MeigenDatabase>, id: u32) -> Result<Strin
 }
 
 pub async fn love(db: Synced<impl MeigenDatabase>, id: u32, from_user_id: u64) -> Result<String> {
+    let meigen = db
+        .read()
+        .await
+        .load(id)
+        .await
+        .context("failed to get meigen")?;
+
+    if meigen.is_none() {
+        return Ok("名言が見つかりませんでした。".to_owned());
+    }
+
     let updated = db
         .write()
         .await
@@ -367,11 +378,22 @@ pub async fn love(db: Synced<impl MeigenDatabase>, id: u32, from_user_id: u64) -
     Ok(if updated {
         "いいねをしました。"
     } else {
-        "いいねできませんでした。名言がないか、既にいいねをしています。"
+        "いいねできませんでした。既にいいねをしています。"
     }.into())
 }
 
 pub async fn unlove(db: Synced<impl MeigenDatabase>, id: u32, from_user_id: u64) -> Result<String> {
+    let meigen = db
+        .read()
+        .await
+        .load(id)
+        .await
+        .context("failed to get meigen")?;
+
+    if meigen.is_none() {
+        return Ok("名言が見つかりませんでした。".to_owned());
+    }
+
     let updated = db
         .write()
         .await
