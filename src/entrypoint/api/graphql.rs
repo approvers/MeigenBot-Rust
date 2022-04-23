@@ -14,6 +14,7 @@ struct Meigen {
     pub id: i32,
     pub author: String,
     pub content: String,
+    pub loved_user_id: Vec<i32>
 }
 
 impl From<model::Meigen> for Meigen {
@@ -22,6 +23,7 @@ impl From<model::Meigen> for Meigen {
             id: m.id as i32,
             author: m.author,
             content: m.content,
+            loved_user_id: m.loved_user_id.
         }
     }
 }
@@ -32,6 +34,7 @@ impl From<Meigen> for model::Meigen {
             id: m.id as u32,
             author: m.author,
             content: m.content,
+            loved_user_id: m.loved_user_id.into()
         }
     }
 }
