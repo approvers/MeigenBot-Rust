@@ -17,7 +17,7 @@ struct MongoMeigen {
     author: String,
     content: String,
 
-    // Added in v0.3. The attribute is for the forward compatibility.
+    // Added in PR #17. The attribute is for the backward compatibility.
     #[serde(default)]
     loved_user_id: Vec<u64>
 }
