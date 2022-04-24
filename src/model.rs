@@ -13,7 +13,7 @@ impl Meigen {
     }
 
     pub fn is_loving(&self, user_id: u64) -> bool {
-        self.loved_user_id.iter().any(|&id| id == user_id)
+        self.loved_user_id.contains(&user_id)
     }
 }
 
