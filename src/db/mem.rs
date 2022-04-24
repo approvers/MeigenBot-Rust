@@ -120,7 +120,7 @@ impl MeigenDatabase for MemoryMeigenDatabase {
 
         match pos {
             Some(p) => {
-                meigen.loved_user_id.remove(p);
+                meigen.loved_user_id.swap_remove(p);
                 Ok(true)
             },
             None => Ok(false)
