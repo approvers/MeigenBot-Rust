@@ -25,7 +25,7 @@ impl From<model::Meigen> for Meigen {
             id: m.id as i32,
             author: m.author,
             content: m.content,
-            loved_user_id: m.loved_user_id.iter().map(|&x| x.to_string()).collect(),
+            loved_user_id: m.loved_user_id.iter().map(|x| x.to_string()).collect(),
         }
     }
 }
