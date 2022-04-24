@@ -85,7 +85,7 @@
             "options": [
                 {
                     "name": "id",
-                    "description": "MeigenID which you are loving",
+                    "description": "The id of meigen which you are loving",
                     "type": 4,
                     "required": true
                 }
@@ -98,7 +98,7 @@
             "options": [
                 {
                     "name": "id",
-                    "description": "MeigenID which you are no longer loving",
+                    "description": "The id of meigen which you are no longer loving",
                     "type": 4,
                     "required": true
                 }
