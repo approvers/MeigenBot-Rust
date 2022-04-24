@@ -1,3 +1,4 @@
+use std::convert::{TryFrom, TryInto};
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use mongodb::{
@@ -19,17 +20,27 @@ struct MongoMeigen {
 
     // Added in PR #17. The attribute is for the backward compatibility.
     #[serde(default)]
-    loved_user_id: Vec<u64>
+    loved_user_id: Vec<String>
 }
 
-impl From<MongoMeigen> for Meigen {
-    fn from(m: MongoMeigen) -> Meigen {
-        Meigen {
+impl TryFrom<MongoMeigen> for Meigen {
+    type Error = anyhow::Error;
+
+    fn try_from(m: MongoMeigen) -> Result<Meigen> {
+        let loved_user_id = m.loved_user_id.iter()
+            .map(
+                |id| id
+                    .parse()
+                    .context("DB contains invalid value")
+            )
+            .collect::<Result<Vec<u64>>>()?;
+
+        Ok(Meigen {
             id: m.id as _,
             author: m.author,
             content: m.content,
-            loved_user_id: m.loved_user_id,
-        }
+            loved_user_id
+        })
     }
 }
 
@@ -75,15 +86,17 @@ impl MeigenDatabase for MongoMeigenDatabase {
             .await
             .context("failed to insert meigen")?;
 
-        Ok(meigen.into())
+        meigen.try_into()
     }
 
     async fn load(&self, id: u32) -> anyhow::Result<Option<Meigen>> {
         self.inner
             .find_one(doc! { "id": id }, None)
             .await
-            .map(|x| x.map(Into::into))
-            .context("failed to find meigen")
+            .context("failed to find meigen")?
+            .map(TryFrom::try_from)
+            .transpose()
+            .context("failed to deserialize the meigen")
     }
 
     async fn load_bulk(&self, id: &[u32]) -> anyhow::Result<Vec<Meigen>> {
@@ -91,7 +104,11 @@ impl MeigenDatabase for MongoMeigenDatabase {
             .find(doc! { "id": { "$in": id } }, None)
             .await
             .context("failed to make find request")?
-            .map(|x| x.map(From::from))
+            .map(
+                |x| x
+                    .map(TryFrom::try_from)
+                    .context("failed to deserialize the meigen")?
+            )
             .collect::<Result<Vec<_>, _>>()
             .await
             .context("failed to decode meigen")
@@ -163,7 +180,11 @@ impl MeigenDatabase for MongoMeigenDatabase {
                     from_document::<MongoMeigen>(x).context("failed to deserialize document")
                 })
             })
-            .map(|x| x.map(From::from))
+            .map(
+                |x| x
+                    .map(TryFrom::try_from)
+                    .context("failed to deserialize the meigen")?
+            )
             .collect::<Result<Vec<Meigen>, _>>()
             .await
             .edit(|x| x.sort_unstable_by_key(|x| x.id))
@@ -190,7 +211,7 @@ impl MeigenDatabase for MongoMeigenDatabase {
         self.inner
             .update_one(
                 doc! { "id": id },
-                doc! { "$addToSet": { "loved_user_id": loved_user_id as u32 } },
+                doc! { "$addToSet": { "loved_user_id": loved_user_id.to_string() } },
                 None
             )
             .await
@@ -202,7 +223,7 @@ impl MeigenDatabase for MongoMeigenDatabase {
         self.inner
             .update_one(
                 doc! { "id": id },
-                doc! { "$pull": { "loved_user_id": loved_user_id as u32 } },
+                doc! { "$pull": { "loved_user_id": loved_user_id.to_string() } },
                 None
             )
             .await
