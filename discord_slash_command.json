@@ -93,7 +93,7 @@
         },
         {
             "name": "unlove",
-            "description": "cancel the love the meigen",
+            "description": "withdraw love for the meigen",
             "type": 1,
             "options": [
                 {
