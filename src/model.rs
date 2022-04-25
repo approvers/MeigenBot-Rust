@@ -5,7 +5,7 @@ pub struct Meigen {
     pub id: u32,
     pub author: String,
     pub content: String,
-    pub loved_user_id: Vec<u64>
+    pub loved_user_id: Vec<u64>,
 }
 impl Meigen {
     pub fn loves(&self) -> usize {

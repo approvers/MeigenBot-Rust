@@ -379,7 +379,8 @@ pub async fn love(db: Synced<impl MeigenDatabase>, id: u32, from_user_id: u64) -
         "いいねをしました。"
     } else {
         "いいねできませんでした。既にいいねをしています。"
-    }.into())
+    }
+    .into())
 }
 
 pub async fn unlove(db: Synced<impl MeigenDatabase>, id: u32, from_user_id: u64) -> Result<String> {
@@ -405,5 +406,6 @@ pub async fn unlove(db: Synced<impl MeigenDatabase>, id: u32, from_user_id: u64)
         "いいねを取り消しました。"
     } else {
         "いいねを取り消しできませんでした。名言がないか、もともといいねをしていませんでした。"
-    }.into())
+    }
+    .into())
 }

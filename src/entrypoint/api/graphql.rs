@@ -1,7 +1,10 @@
-use std::{convert::TryInto, marker::PhantomData, sync::Arc};
-use std::convert::TryFrom;
-use anyhow::Context as _;
+use std::{
+    convert::{TryFrom, TryInto},
+    marker::PhantomData,
+    sync::Arc,
+};
 
+use anyhow::Context as _;
 use juniper::{
     graphql_object, EmptyMutation, EmptySubscription, FieldError, FieldResult, GraphQLInputObject,
     GraphQLObject, Value,
@@ -16,7 +19,7 @@ struct Meigen {
     pub id: i32,
     pub author: String,
     pub content: String,
-    pub loved_user_id: Vec<String>
+    pub loved_user_id: Vec<String>,
 }
 
 impl From<model::Meigen> for Meigen {
@@ -34,7 +37,9 @@ impl TryFrom<Meigen> for model::Meigen {
     type Error = anyhow::Error;
 
     fn try_from(m: Meigen) -> Result<Self, Self::Error> {
-        let loved_user_id = m.loved_user_id.iter()
+        let loved_user_id = m
+            .loved_user_id
+            .iter()
             .map(|x| x.parse())
             .collect::<Result<Vec<u64>, _>>()
             .context("could not parse loved_user_id")?;
@@ -43,7 +48,7 @@ impl TryFrom<Meigen> for model::Meigen {
             id: m.id as u32,
             author: m.author,
             content: m.content,
-            loved_user_id
+            loved_user_id,
         })
     }
 }

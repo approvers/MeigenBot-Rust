@@ -162,7 +162,7 @@ async fn run_command(
                 }
                 _ => return Err(InvalidRequest("unexpected subcommand for search command")),
             }
-        },
+        }
         "love" => {
             let (req_id, ()) = extract!({
                 from: first_opt,
@@ -172,7 +172,7 @@ async fn run_command(
             let user_id = get_requesting_user_id(req)?;
 
             love(db, req_id, user_id).await
-        },
+        }
         "unlove" => {
             let (req_id, ()) = extract!({
                 from: first_opt,
@@ -182,7 +182,7 @@ async fn run_command(
             let user_id = get_requesting_user_id(req)?;
 
             unlove(db, req_id, user_id).await
-        },
+        }
         "help" => help().await,
         "id" => {
             let (req_id, ()) = extract!({

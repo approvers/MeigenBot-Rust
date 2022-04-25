@@ -30,7 +30,7 @@ impl MeigenDatabase for MemoryMeigenDatabase {
             id: id + 1,
             author,
             content,
-            loved_user_id: Vec::new()
+            loved_user_id: Vec::new(),
         };
 
         self.inner.push(meigen.clone());
@@ -115,15 +115,17 @@ impl MeigenDatabase for MemoryMeigenDatabase {
             None => return Ok(false),
         };
 
-        let pos = meigen.loved_user_id.iter()
+        let pos = meigen
+            .loved_user_id
+            .iter()
             .position(|&id| id == loved_user_id);
 
         match pos {
             Some(p) => {
                 meigen.loved_user_id.swap_remove(p);
                 Ok(true)
-            },
-            None => Ok(false)
+            }
+            None => Ok(false),
         }
     }
 }
