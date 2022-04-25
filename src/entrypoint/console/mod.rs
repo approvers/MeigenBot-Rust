@@ -82,7 +82,8 @@ impl<D: MeigenDatabase> Console<D> {
             }
 
             // this can be written smarter with "or_patterns"
-            "make" | "help" | "id" | "list" | "random" | "status" | "delete" => {
+            "make" | "help" | "id" | "list" | "random" | "status" | "delete" | "love"
+            | "unlove" => {
                 // TODO: support more command
                 unimplemented!(
                     "currently {} handler on console is unimplemented",

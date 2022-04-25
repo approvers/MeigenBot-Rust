@@ -30,6 +30,7 @@ impl MeigenDatabase for MemoryMeigenDatabase {
             id: id + 1,
             author,
             content,
+            loved_user_id: Vec::new(),
         };
 
         self.inner.push(meigen.clone());
@@ -91,5 +92,40 @@ impl MeigenDatabase for MemoryMeigenDatabase {
 
     async fn count(&self) -> Result<u32> {
         Ok(self.inner.len() as _)
+    }
+
+    async fn append_loved_user(&mut self, id: u32, loved_user_id: u64) -> Result<bool> {
+        let meigen = match self.inner.iter_mut().find(|x| x.id == id) {
+            Some(m) => m,
+            None => return Ok(false),
+        };
+
+        if meigen.is_loving(loved_user_id) {
+            return Ok(false);
+        }
+
+        meigen.loved_user_id.push(loved_user_id);
+
+        Ok(true)
+    }
+
+    async fn remove_loved_user(&mut self, id: u32, loved_user_id: u64) -> Result<bool> {
+        let meigen = match self.inner.iter_mut().find(|x| x.id == id) {
+            Some(m) => m,
+            None => return Ok(false),
+        };
+
+        let pos = meigen
+            .loved_user_id
+            .iter()
+            .position(|&id| id == loved_user_id);
+
+        match pos {
+            Some(p) => {
+                meigen.loved_user_id.swap_remove(p);
+                Ok(true)
+            }
+            None => Ok(false),
+        }
     }
 }

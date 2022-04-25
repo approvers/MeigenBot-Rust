@@ -85,6 +85,8 @@ g!meigen [subcommand] [args...]
     id [名言ID]                             :: 指定されたIDの名言を表示します
     search [検索内容] [表示数=5] [ページ=1]    :: 名言を検索します(g!meigen searchでヘルプを表示します)
     random [表示数=1]                       :: ランダムに名言を出します
+    love [名言ID]                          :: 名言にいいねをします
+    unlove [名言ID]                        :: 名言のいいねを消します
     status                                 :: 現在登録されてる名言の数を出します
     delete [名言ID]                         :: 指定されたIDの名言を削除します かわえもんにしか使えません
 ```";
@@ -352,4 +354,58 @@ pub async fn gophersay(db: Synced<impl MeigenDatabase>, id: u32) -> Result<Strin
     );
 
     Ok(msg)
+}
+
+pub async fn love(db: Synced<impl MeigenDatabase>, id: u32, from_user_id: u64) -> Result<String> {
+    let meigen = db
+        .read()
+        .await
+        .load(id)
+        .await
+        .context("failed to get meigen")?;
+
+    if meigen.is_none() {
+        return Ok("名言が見つかりませんでした。".to_owned());
+    }
+
+    let updated = db
+        .write()
+        .await
+        .append_loved_user(id, from_user_id)
+        .await
+        .context("failed to append the loved user id")?;
+
+    Ok(if updated {
+        "いいねをしました。"
+    } else {
+        "いいねできませんでした。既にいいねをしています。"
+    }
+    .into())
+}
+
+pub async fn unlove(db: Synced<impl MeigenDatabase>, id: u32, from_user_id: u64) -> Result<String> {
+    let meigen = db
+        .read()
+        .await
+        .load(id)
+        .await
+        .context("failed to get meigen")?;
+
+    if meigen.is_none() {
+        return Ok("名言が見つかりませんでした。".to_owned());
+    }
+
+    let updated = db
+        .write()
+        .await
+        .remove_loved_user(id, from_user_id)
+        .await
+        .context("failed to append the loved user id")?;
+
+    Ok(if updated {
+        "いいねを取り消しました。"
+    } else {
+        "いいねを取り消しできませんでした。名言がないか、もともといいねをしていませんでした。"
+    }
+    .into())
 }
